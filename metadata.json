@@ -1,0 +1,6 @@
+{
+  "name": "Kisaan Dost",
+  "description": "Bilingual AI Voice Companion for Pakistani Farmers. Supports native Urdu, Punjabi, Sindhi, Pashto, Seraiki, Balochi, and English voice/text guidance on crops, pests, fertilizer, market rates, and weather.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
