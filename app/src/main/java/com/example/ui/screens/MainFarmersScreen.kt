@@ -76,6 +76,8 @@ fun MainFarmersScreen(
     var activeTTSMessageId by remember { mutableStateOf<String?>(null) }
 
     var showCustomVoiceDialog by remember { mutableStateOf(false) }
+    var showVoiceTextInputDialog by remember { mutableStateOf(false) }
+    var lastClickedVoiceMode by remember { mutableStateOf("send") } // "send" or "input"
     var showLiveSessionDialog by remember { mutableStateOf(false) }
 
     val liveConnectionState by viewModel.liveConnectionState.collectAsStateWithLifecycle()
@@ -133,7 +135,11 @@ fun MainFarmersScreen(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            showCustomVoiceDialog = true
+            if (lastClickedVoiceMode == "send") {
+                showCustomVoiceDialog = true
+            } else {
+                showVoiceTextInputDialog = true
+            }
         } else {
             Toast.makeText(context, "آواز ریکارڈ کرنے کی اجازت مسترد کر دی گئی۔ آپ ٹائپ کر کے بھی پوچھ سکتے ہیں۔", Toast.LENGTH_LONG).show()
         }
@@ -162,6 +168,7 @@ fun MainFarmersScreen(
     LaunchedEffect(triggerAutoMicLaunch) {
         if (triggerAutoMicLaunch) {
             triggerAutoMicLaunch = false
+            lastClickedVoiceMode = "send"
             val hasPermission = ContextCompat.checkSelfPermission(
                 context,
                 android.Manifest.permission.RECORD_AUDIO
@@ -436,6 +443,7 @@ fun MainFarmersScreen(
                         }
                     },
                     onMicClick = {
+                        lastClickedVoiceMode = "send"
                         val hasPermission = ContextCompat.checkSelfPermission(
                             context,
                             android.Manifest.permission.RECORD_AUDIO
@@ -443,6 +451,19 @@ fun MainFarmersScreen(
 
                         if (hasPermission) {
                             showCustomVoiceDialog = true
+                        } else {
+                            microphonePermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+                        }
+                    },
+                    onVoiceTextInputClick = {
+                        lastClickedVoiceMode = "input"
+                        val hasPermission = ContextCompat.checkSelfPermission(
+                            context,
+                            android.Manifest.permission.RECORD_AUDIO
+                        ) == PackageManager.PERMISSION_GRANTED
+
+                        if (hasPermission) {
+                            showVoiceTextInputDialog = true
                         } else {
                             microphonePermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
                         }
@@ -668,6 +689,22 @@ fun MainFarmersScreen(
             },
             onDismiss = {
                 showCustomVoiceDialog = false
+            }
+        )
+    }
+
+    if (showVoiceTextInputDialog) {
+        CustomVoiceListeningDialog(
+            language = selectedLanguage,
+            onSpeechResult = { text ->
+                if (text.isNotBlank()) {
+                    inputQueryText = text
+                    Toast.makeText(context, "آواز تبدیل کر دی گئی", Toast.LENGTH_SHORT).show()
+                }
+                showVoiceTextInputDialog = false
+            },
+            onDismiss = {
+                showVoiceTextInputDialog = false
             }
         )
     }
@@ -1447,6 +1484,7 @@ fun BottomActionPanel(
     selectedLanguage: LanguageOption,
     onSendClick: () -> Unit,
     onMicClick: () -> Unit,
+    onVoiceTextInputClick: () -> Unit,
     isHandsFreeActive: Boolean,
     onHandsFreeToggle: (Boolean) -> Unit
 ) {
@@ -1670,6 +1708,17 @@ fun BottomActionPanel(
                                 Icon(
                                     imageVector = Icons.Filled.Send,
                                     contentDescription = "ارسال کریں",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        } else {
+                            IconButton(
+                                onClick = onVoiceTextInputClick,
+                                modifier = Modifier.testTag("voice_text_input_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Mic,
+                                    contentDescription = "آواز سے لکھیں (Voice-to-Text Input)",
                                     tint = MaterialTheme.colorScheme.primary
                                 )
                             }
