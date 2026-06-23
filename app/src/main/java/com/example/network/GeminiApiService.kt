@@ -16,11 +16,18 @@ import java.util.concurrent.TimeUnit
 data class GenerateContentRequest(
     @Json(name = "contents") val contents: List<Content>,
     @Json(name = "generationConfig") val generationConfig: GenerationConfig? = null,
-    @Json(name = "systemInstruction") val systemInstruction: Content? = null
+    @Json(name = "systemInstruction") val systemInstruction: Content? = null,
+    @Json(name = "tools") val tools: List<Tool>? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class Tool(
+    @Json(name = "googleSearch") val googleSearch: Map<String, String>? = emptyMap()
 )
 
 @JsonClass(generateAdapter = true)
 data class Content(
+    @Json(name = "role") val role: String? = null,
     @Json(name = "parts") val parts: List<Part>
 )
 

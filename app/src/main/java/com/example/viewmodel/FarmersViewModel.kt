@@ -32,7 +32,8 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             // Collect live incoming streaming text
             liveService.incomingText.collect { chunk ->
-                _liveReceivedText.value = _liveReceivedText.value + chunk
+                val cleanChunk = chunk.replace("*", "")
+                _liveReceivedText.value = _liveReceivedText.value + cleanChunk
             }
         }
         viewModelScope.launch {
@@ -305,8 +306,9 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
                     RetrofitClient.service.generateContent(apiKey, request)
                 }
                 
-                val translation = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
+                val rawTranslation = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
                     ?: "ترجمہ دستیاب نہیں ہے۔"
+                val translation = rawTranslation.replace("*", "")
                 
                 _messageTranslations.value = _messageTranslations.value + (messageId to translation)
             } catch (e: Exception) {
@@ -348,6 +350,10 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
             4. Provide cost-effective and natural home remedies (دیسی حل) for pest control and animal care alongside scientific names if necessary.
             5. Always maintain an encouraging, polite, and rural-friendly tone ('Aap', 'Bhai', 'Kisaan Dost').
             6. Keep emojis helpful and contextual (🚜, 🌾, 🐛, ☀️, 🌧️). Keep sentences moderately short because the farmer will listen to these answers via Text-to-Speech (موبائل بول کر سنائے گا).
+            7. **LIVE SEARCH GROUNDING & ACCURACY (MANDI RATES & WEATHER)**: 
+               - When the user asks about daily market prices (mandi rates), regional weather, current pest forecasts, or government agriculture subsidies, you MUST utilize the integrated live Google Search tool.
+               - Look specifically for verified and official regional sources, such as the Punjab Agricultural Marketing Information Service (AMIS) at `amis.pk`, `zaraimandi.com`, or official provincial departments of agriculture.
+               - **STRICTLY PROHIBITED TO HALLUCINATE OR ESTIMATE IMAGINARY RATES**: If the live search does not return explicit, high-confidence, real-time market rates for that crop, market, or district today, DO NOT make up or guess any numbers. Politely inform the farmer in their chosen language that the live rate for that commodity/market is currently not updated on the official regional portals today, and offer to give them the nearest regional market average that is officially verified instead. Fully cite the reference source and date when rates are successfully found.
         """.trimIndent()
 
         // Build the contents structure of previous conversation flow
@@ -357,6 +363,7 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
         history.forEach { msg ->
             contentList.add(
                 Content(
+                    role = if (msg.role == "model") "model" else "user",
                     parts = listOf(Part(text = msg.text))
                 )
             )
@@ -365,6 +372,7 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
         // Add current user prompt
         contentList.add(
             Content(
+                role = "user",
                 parts = listOf(Part(text = userPrompt))
             )
         )
@@ -377,12 +385,14 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
             ),
             systemInstruction = Content(
                 parts = listOf(Part(text = systemDirective))
-            )
+            ),
+            tools = listOf(Tool(googleSearch = emptyMap()))
         )
 
         val response = RetrofitClient.service.generateContent(apiKey, request)
         val text = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
-        text ?: "معذرت، کوئی جواب موصول نہیں ہوا۔"
+        val cleanText = text?.replace("*", "") ?: "معذرت، کوئی جواب موصول نہیں ہوا۔"
+        cleanText
     }
 
     override fun onCleared() {

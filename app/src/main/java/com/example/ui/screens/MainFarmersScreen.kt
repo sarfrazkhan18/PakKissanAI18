@@ -73,6 +73,7 @@ fun MainFarmersScreen(
     var showSessionDrawer by remember { mutableStateOf(false) }
     var showMarketsDialog by remember { mutableStateOf(false) }
     var showSetupDialog by remember { mutableStateOf(false) }
+    var showHelpGuideDialog by remember { mutableStateOf(false) }
     var activeTTSMessageId by remember { mutableStateOf<String?>(null) }
 
     var showCustomVoiceDialog by remember { mutableStateOf(false) }
@@ -350,11 +351,18 @@ fun MainFarmersScreen(
                 )
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // Category Filter Tabs
-                CategoryFilterBar(
-                    selectedCategory = selectedCategory,
-                    onCategorySelected = { viewModel.setCategoryFilter(it) }
-                )
+                if (showHelpGuideDialog) {
+                    OfflineFarmingGuide(
+                        selectedLanguage = selectedLanguage,
+                        onClose = { showHelpGuideDialog = false },
+                        modifier = Modifier.weight(1f)
+                    )
+                } else {
+                    // Category Filter Tabs
+                    CategoryFilterBar(
+                        selectedCategory = selectedCategory,
+                        onCategorySelected = { viewModel.setCategoryFilter(it) }
+                    )
 
                 if (filteredMessages.isEmpty()) {
                     // Empty Conversation Page: Show Friendly Pakistani Agricultural Guidance Topics
@@ -471,12 +479,14 @@ fun MainFarmersScreen(
                     isHandsFreeActive = isHandsFreeActive,
                     onHandsFreeToggle = { isHandsFreeActive = it }
                 )
+                }
 
                 // High fidelity bottom navigation bar from the Elegant Dark theme guidelines
                 val activeNav = when {
                     showSessionDrawer -> "History"
                     showMarketsDialog -> "Markets"
                     showSetupDialog -> "Setup"
+                    showHelpGuideDialog -> "Help"
                     else -> "Home"
                 }
 
@@ -499,6 +509,19 @@ fun MainFarmersScreen(
                             showSessionDrawer = false
                             showMarketsDialog = false
                             showSetupDialog = false
+                            showHelpGuideDialog = false
+                        }
+                    )
+
+                    NavTabItem(
+                        icon = Icons.Default.Help,
+                        labelUrdu = "زرعی معلومات",
+                        isActive = activeNav == "Help",
+                        onClick = {
+                            showHelpGuideDialog = true
+                            showSessionDrawer = false
+                            showMarketsDialog = false
+                            showSetupDialog = false
                         }
                     )
 
@@ -510,6 +533,7 @@ fun MainFarmersScreen(
                             showSessionDrawer = !showSessionDrawer
                             showMarketsDialog = false
                             showSetupDialog = false
+                            showHelpGuideDialog = false
                         }
                     )
 
@@ -521,6 +545,7 @@ fun MainFarmersScreen(
                             showMarketsDialog = true
                             showSessionDrawer = false
                             showSetupDialog = false
+                            showHelpGuideDialog = false
                         }
                     )
 
@@ -532,6 +557,7 @@ fun MainFarmersScreen(
                             showSetupDialog = true
                             showSessionDrawer = false
                             showMarketsDialog = false
+                            showHelpGuideDialog = false
                         }
                     )
                 }
@@ -2149,7 +2175,7 @@ fun CustomVoiceListeningDialog(
                         )
                     }
                 } else {
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
 
                 Row(
@@ -2172,7 +2198,110 @@ fun CustomVoiceListeningDialog(
                     Box(modifier = Modifier.size(width = 4.dp, height = waveHeight3.value.dp).background(Color(0xFF10B981), RoundedCornerShape(3.dp)))
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+                Divider(color = Color(0xFF2C3E2F), thickness = 1.dp)
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Beautiful Regional Language Question Shortcuts
+                Text(
+                    text = "مقبول کسان سوالات • Try Local Voice Shortcut:",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF10B981),
+                    modifier = Modifier.align(Alignment.Start).padding(bottom = 6.dp)
+                )
+
+                val quickQueries = remember(language) {
+                    when (language) {
+                        LanguageOption.URDU -> listOf(
+                            "گندم کی پیداوار بڑھانے کا طریقہ کیا ہے؟",
+                            "ڈی اے پی اور یوریا کھاد کا متوازن استعمال کیسے کریں؟",
+                            "کپاس کے پتوں پر سفید مکھی کے حملے کا دیسی علاج کیا ہے؟"
+                        )
+                        LanguageOption.PUNJABI -> listOf(
+                            "پانی لانے دا صحیح وقت کڑا اے؟",
+                            "کنک دی بیجائی لئی کیڑا وقت چنگا اے؟",
+                            "کھاد پاون دا سہی طریقہ کی اے؟"
+                        )
+                        LanguageOption.SINDHI -> listOf(
+                            "ڪڻڪ جي پوکيءَ لاءِ بھترين وقت ڪھڙو آھي؟",
+                            "پکيءَ ۽ کیڙن کان بچاءَ جو علاج ڪھڙو آھي؟",
+                            "پاڻي ڏيڻ جا نازڪ مرحلا ٻڌايو؟"
+                        )
+                        LanguageOption.PASHTO -> listOf(
+                            "د غنمو د فصل دپاره کوه ښه ده؟",
+                            "د ډي اے پي سرې صحیح استعمال څنګه وکړو؟",
+                            "کپاس دپاره د سپین مچ دیسی علاج نشته؟"
+                        )
+                        LanguageOption.SERAIKI -> listOf(
+                            "کپاہ کوں کیڑے توں بچاونڑ دا طریقہ ڈساؤ۔",
+                            "گندم کوں پہلا پانی کڈھنڑ لاونڑاں چائیدا اے؟",
+                            "ڈی اے پی کھاد پاونڑ دا صحیح وقت ڈساؤ۔"
+                        )
+                        LanguageOption.BALOCHI -> listOf(
+                            "مئے زمین ءَ پہ آپ جنگ ءَ چے کنگی انت؟",
+                            "گندم ءِ پیدوار گیش کنگ ءِ کار پئیما بیت؟",
+                            "کپاس سفید ماھیگ قدرتی گاجان چونی انت؟"
+                        )
+                        LanguageOption.ENGLISH -> listOf(
+                            "How to deal with cotton whiteflies pest attack?",
+                            "What are the critical growth stages for wheat irrigation?",
+                            "How to prepare chemical-free organic pest sprays?"
+                        )
+                    }
+                }
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    quickQueries.forEach { query ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onSpeechResult(query)
+                                },
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF161B17)),
+                            border = BorderStroke(1.dp, Color(0xFF2C3E2F))
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.RecordVoiceOver,
+                                        contentDescription = null,
+                                        tint = Color(0xFF10B981),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = query,
+                                        fontSize = 12.sp,
+                                        color = Color(0xFFE1E3E1),
+                                        style = LocalTextStyle.current.copy(textDirection = TextDirection.ContentOrRtl)
+                                    )
+                                }
+                                Icon(
+                                    imageVector = Icons.Default.Send,
+                                    contentDescription = "پوچھیں Ask Kisaan AI",
+                                    tint = Color(0xFF10B981).copy(alpha = 0.8f),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Button(
                     onClick = onDismiss,
@@ -2184,7 +2313,7 @@ fun CustomVoiceListeningDialog(
                     modifier = Modifier.fillMaxWidth().height(48.dp)
                 ) {
                     Text(
-                        text = "روکیں (Cancel)",
+                        text = "روکیں (Cancel & Close)",
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp
                     )
