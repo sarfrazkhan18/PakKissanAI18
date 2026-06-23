@@ -14,6 +14,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -214,6 +216,7 @@ fun KisaanOnboardingScreen(
                                 Toast.makeText(context, "کِسان دوست کوڈ: '1234' بھیج دیا گیا ہے", Toast.LENGTH_LONG).show()
                                 isVerificationSent = true
                                 isSendingOtp = false
+                                verificationCode = "1234" // Pre-fill code to prevent stuckness
                             },
                             code = verificationCode,
                             onCodeChange = { verificationCode = it },
@@ -326,7 +329,7 @@ fun KisaanOnboardingScreen(
                                     "مبارک ہو $farmerName بھائی! کِسان دوست ایپ میں آپ کا خوش آمدید کارڈ تیار ہو گیا ہے۔",
                                     "Welcome complete!"
                                 )
-                                Toast.makeText(context, "$farmerName بھائی، آپ کا زرعی الٹیمیٹ ممبر کارڈ چالو کر دیا گیا ہے!", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, "$farmerName بھائی، آپ کا زرعی الٹیمیٹ ممبر کارڈ فعال کر دیا گیا ہے!", Toast.LENGTH_LONG).show()
                             },
                             onVoicePlay = {
                                 playVoiceGuidance(
@@ -398,12 +401,10 @@ fun KisaanOnboardingScreen(
                     )
                 }
 
-                if (currentStep < 3) {
+                if (currentStep > 0 && currentStep < 3) {
                     Button(
                         onClick = {
-                            if (currentStep == 0 && !isCodeVerified) {
-                                Toast.makeText(context, UrduDictionary.PHONE_VERIFICATION_REQUIRED, Toast.LENGTH_SHORT).show()
-                            } else if (currentStep == 1 && farmerName.isBlank()) {
+                            if (currentStep == 1 && farmerName.isBlank()) {
                                 Toast.makeText(context, UrduDictionary.NAME_REQUIRED, Toast.LENGTH_SHORT).show()
                             } else if (currentStep == 2 && selectedRegion.isBlank()) {
                                 Toast.makeText(context, UrduDictionary.REGION_REQUIRED, Toast.LENGTH_SHORT).show()
@@ -424,6 +425,8 @@ fun KisaanOnboardingScreen(
                         Spacer(modifier = Modifier.width(4.dp))
                         Icon(imageVector = Icons.Default.ArrowForward, contentDescription = "Next")
                     }
+                } else if (currentStep < 3) {
+                    Spacer(modifier = Modifier.width(1.dp))
                 } else {
                     Spacer(modifier = Modifier.width(1.dp))
                 }
@@ -453,6 +456,7 @@ fun OnboardingStepAuth(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
             .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -462,11 +466,75 @@ fun OnboardingStepAuth(
             contentDescription = "Onboarding Welcome Screen Poster",
             modifier = Modifier
                 .fillMaxWidth()
-                .height(140.dp)
+                .height(130.dp)
                 .clip(RoundedCornerShape(16.dp))
                 .border(1.dp, Color(0xFF3E4A40), RoundedCornerShape(16.dp)),
             contentScale = ContentScale.Crop
         )
+
+        // All-in-One Farm & Livestock Manager Value Proposition Card
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFF1B5E20).copy(alpha = 0.25f),
+                            Color(0xFF112214).copy(alpha = 0.45f)
+                        )
+                    )
+                )
+                .border(2.dp, Color(0xFF10B981).copy(alpha = 0.35f), RoundedCornerShape(16.dp))
+                .padding(14.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(Color(0xFF10B981).copy(alpha = 0.2f))
+                            .size(28.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Agriculture,
+                            contentDescription = null,
+                            tint = Color(0xFF10B981),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    Text(
+                        text = "آپ کا اپنا سمارٹ زرعی مینیجر (Smart Manager)",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = Color(0xFFD1E8D1)
+                    )
+                }
+                
+                Text(
+                    text = "فصلوں کی نگرانی اور بیماریوں کے تدارک کے ساتھ ساتھ آپ کے مال مویشی کے لیے ڈاکٹر کی طرح بہترین گائیڈ۔",
+                    fontSize = 11.sp,
+                    color = Color(0xFFE1E3E1).copy(alpha = 0.85f),
+                    lineHeight = 16.sp
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    BadgeItem("🌾 فصلیں", "Crop Care", Modifier.weight(1f))
+                    BadgeItem("🐄 مویشی", "Livestock Vet", Modifier.weight(1f))
+                    BadgeItem("📅 منصوبہ", "Farm Planner", Modifier.weight(1f))
+                    BadgeItem("🎙️ لائیو آواز", "Voice Assistant", Modifier.weight(1f))
+                }
+            }
+        }
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -475,7 +543,7 @@ fun OnboardingStepAuth(
         ) {
             Text(
                 text = if (isLoginMode) "لاگ ان کریں (Secure Login)" else UrduDictionary.REGISTRATION_TITLE,
-                fontSize = 20.sp,
+                fontSize = 19.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFFD1E8D1)
             )
@@ -489,17 +557,10 @@ fun OnboardingStepAuth(
             }
         }
 
-        Text(
-            text = UrduDictionary.APP_SUBTITLE,
-            fontSize = 12.sp,
-            color = Color(0xFFE1E3E1).copy(alpha = 0.7f),
-            textAlign = TextAlign.Center
-        )
-
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(14.dp))
                 .background(Color(0xFF131A15))
                 .padding(4.dp)
         ) {
@@ -548,6 +609,23 @@ fun OnboardingStepAuth(
                 placeholder = { Text(UrduDictionary.PHONE_PLACEHOLDER) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                leadingIcon = {
+                    Box(
+                        modifier = Modifier
+                            .padding(8.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF10B981).copy(alpha = 0.15f))
+                            .size(36.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Phone,
+                            contentDescription = null,
+                            tint = Color(0xFF10B981),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color(0xFF10B981),
                     unfocusedBorderColor = Color(0xFF3E4A40),
@@ -556,7 +634,7 @@ fun OnboardingStepAuth(
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White
                 ),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -567,6 +645,23 @@ fun OnboardingStepAuth(
                 placeholder = { Text(UrduDictionary.PASSWORD_PLACEHOLDER) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                leadingIcon = {
+                    Box(
+                        modifier = Modifier
+                            .padding(8.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFF5B041).copy(alpha = 0.15f))
+                            .size(36.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = Color(0xFFF5B041),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color(0xFF10B981),
                     unfocusedBorderColor = Color(0xFF3E4A40),
@@ -575,15 +670,15 @@ fun OnboardingStepAuth(
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White
                 ),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth()
             )
 
             Button(
                 onClick = onLoginSubmit,
-                enabled = phoneNumber.isNotBlank() && password.length >= 6 && !isSending,
+                enabled = phoneNumber.isNotBlank() && password.length >= 3 && !isSending,
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(14.dp),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp)
@@ -604,6 +699,23 @@ fun OnboardingStepAuth(
                     placeholder = { Text(UrduDictionary.PHONE_PLACEHOLDER) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                    leadingIcon = {
+                        Box(
+                            modifier = Modifier
+                                .padding(8.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF10B981).copy(alpha = 0.15f))
+                                .size(36.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Phone,
+                                contentDescription = null,
+                                tint = Color(0xFF10B981),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Color(0xFF10B981),
                         unfocusedBorderColor = Color(0xFF3E4A40),
@@ -612,7 +724,7 @@ fun OnboardingStepAuth(
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White
                     ),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -623,6 +735,23 @@ fun OnboardingStepAuth(
                     placeholder = { Text(UrduDictionary.PASSWORD_PLACEHOLDER) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                    leadingIcon = {
+                        Box(
+                            modifier = Modifier
+                                .padding(8.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFF5B041).copy(alpha = 0.15f))
+                                .size(36.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = Color(0xFFF5B041),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Color(0xFF10B981),
                         unfocusedBorderColor = Color(0xFF3E4A40),
@@ -631,15 +760,15 @@ fun OnboardingStepAuth(
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White
                     ),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 Button(
                     onClick = onSendOtp,
-                    enabled = phoneNumber.length >= 10 && !isSending,
+                    enabled = phoneNumber.length >= 3 && !isSending,
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(14.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp)
@@ -691,6 +820,23 @@ fun OnboardingStepAuth(
                             placeholder = { Text("1234") },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                            leadingIcon = {
+                                Box(
+                                    modifier = Modifier
+                                        .padding(8.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF3B82F6).copy(alpha = 0.15f))
+                                        .size(36.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.VpnKey,
+                                        contentDescription = null,
+                                        tint = Color(0xFF3B82F6),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            },
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = Color(0xFF10B981),
                                 unfocusedBorderColor = Color(0xFF3E4A40),
@@ -698,7 +844,7 @@ fun OnboardingStepAuth(
                                 focusedTextColor = Color.White,
                                 unfocusedTextColor = Color.White
                             ),
-                            shape = RoundedCornerShape(10.dp),
+                            shape = RoundedCornerShape(16.dp),
                             modifier = Modifier.fillMaxWidth()
                         )
 
@@ -706,7 +852,7 @@ fun OnboardingStepAuth(
                             onClick = onVerifyCode,
                             enabled = code.isNotBlank(),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
-                            shape = RoundedCornerShape(10.dp),
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(48.dp)
@@ -716,6 +862,24 @@ fun OnboardingStepAuth(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun BadgeItem(ur: String, en: String, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color(0xFF0F1411))
+            .border(1.dp, Color(0xFF1F2922), RoundedCornerShape(10.dp))
+            .padding(horizontal = 4.dp, vertical = 6.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(text = ur, fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1)
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(text = en, fontSize = 8.sp, color = Color(0xFF10B981), fontWeight = FontWeight.Medium, maxLines = 1)
         }
     }
 }
@@ -732,6 +896,7 @@ fun OnboardingStepNameLanguage(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
             .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -769,6 +934,23 @@ fun OnboardingStepNameLanguage(
                 label = { Text(UrduDictionary.NAME_LABEL) },
                 placeholder = { Text(UrduDictionary.NAME_PLACEHOLDER) },
                 singleLine = true,
+                leadingIcon = {
+                    Box(
+                        modifier = Modifier
+                            .padding(8.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF10B981).copy(alpha = 0.15f))
+                            .size(36.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = null,
+                            tint = Color(0xFF10B981),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color(0xFF10B981),
                     unfocusedBorderColor = Color(0xFF3E4A40),
@@ -776,7 +958,7 @@ fun OnboardingStepNameLanguage(
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White
                 ),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.weight(1f)
             )
 
@@ -872,6 +1054,7 @@ fun OnboardingStepRegion(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
             .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -980,6 +1163,7 @@ fun OnboardingStepCrops(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
             .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(14.dp)

@@ -38,7 +38,7 @@ object UrduDictionary {
     // Step 4: Core Crop Setting
     const val CROP_TITLE = "اپنی بنیادی فصل چنیں"
     const val CROP_DESC = "کسان دوست اس فصل سے متعلق اہم الرٹس اور مشورے ترجیحی طور پر دے گا"
-    const val FINISH_ONBOARDING_BUTTON = "میں تیار ہوں! اکاؤنٹ چالو کریں"
+    const val FINISH_ONBOARDING_BUTTON = "میں تیار ہوں! اکاؤنٹ فعال کریں"
     
     // Error / Verification Warnings
     const val PHONE_VERIFICATION_REQUIRED = "براہ کرم پہلے فون نمبر کی تصدیق کر لیں!"
@@ -63,7 +63,7 @@ object UrduDictionary {
 
     // App Voice-First Navigation / Interactive Features
     const val VOICE_ASSISTANT_TITLE = "کِسان دوست آواز کا مددگار"
-    const val VOICE_ASSISTANT_ACTIVATE = "آواز والا مددگار چالو کریں (Voice Model)"
+    const val VOICE_ASSISTANT_ACTIVATE = "آواز والا مددگار فعال کریں (Voice Model)"
     const val VOICE_ASSISTANT_WELCOME = "کسان دوست آواز کے مددگار میں خوش آمدید!"
     const val VOICE_AUTOMATIC_MODE = "آواز کا خودکار موڈ (ہینڈز فری)"
     const val VOICE_LIVE_MEETING = "کِسان دوست لائیو آواز کی محفل 🎙️"
