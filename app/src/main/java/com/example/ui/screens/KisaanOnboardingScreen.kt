@@ -12,6 +12,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -31,7 +32,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -66,9 +66,6 @@ fun KisaanOnboardingScreen(
     val scope = rememberCoroutineScope()
     var isLoginMode by remember { mutableStateOf(false) }
 
-    // Welcome gate: friendly hero screen before stepper starts
-    var showWelcome by remember { mutableStateOf(true) }
-
     var currentStep by remember { mutableStateOf(0) }
     
     // Step 0: Auth State
@@ -99,7 +96,14 @@ fun KisaanOnboardingScreen(
         }
     }
 
-    // Initial welcome voice greeting is handled inside OnboardingStepWelcome.
+    // Trigger initial welcoming audio greeting
+    LaunchedEffect(Unit) {
+        delay(600)
+        playVoiceGuidance(
+            UrduDictionary.VOICE_INTRO_GREETING,
+            "Welcome to Kisaan Dost application. Please register and complete your farmer profile."
+        )
+    }
 
     // Voice to Text launcher for name dictation
     val speechToTextLauncher = rememberLauncherForActivityResult(
@@ -119,12 +123,24 @@ fun KisaanOnboardingScreen(
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ur-PK")
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "ur-PK")
+            putExtra(RecognizerIntent.EXTRA_SUPPORTED_LANGUAGES, arrayOf("ur-PK", "ur", "en-US"))
+            putExtra("android.speech.extra.EXTRA_ADDITIONAL_LANGUAGES", arrayOf("ur-PK", "ur", "en-US"))
             putExtra(RecognizerIntent.EXTRA_PROMPT, UrduDictionary.VOICE_DICTATION_HINT)
         }
         try {
             speechToTextLauncher.launch(intent)
         } catch (e: Exception) {
-            Toast.makeText(context, UrduDictionary.SPEECH_NOT_SUPPORTED, Toast.LENGTH_SHORT).show()
+            try {
+                // Try with default language fallback
+                val fallbackIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    putExtra(RecognizerIntent.EXTRA_PROMPT, UrduDictionary.VOICE_DICTATION_HINT)
+                }
+                speechToTextLauncher.launch(fallbackIntent)
+            } catch (ex: Exception) {
+                Toast.makeText(context, UrduDictionary.SPEECH_NOT_SUPPORTED, Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -147,34 +163,6 @@ fun KisaanOnboardingScreen(
                 )
         )
 
-        // Animated welcome hero gate before the stepper begins
-        AnimatedVisibility(
-            visible = showWelcome,
-            enter = fadeIn(animationSpec = tween(400)),
-            exit = fadeOut(animationSpec = tween(300)) + slideOutHorizontally { -it / 4 }
-        ) {
-            OnboardingStepWelcome(
-                onStart = {
-                    showWelcome = false
-                    playVoiceGuidance(
-                        UrduDictionary.VOICE_STEP_AUTH_HELP,
-                        "Please register with your phone number."
-                    )
-                },
-                onVoicePlay = {
-                    playVoiceGuidance(
-                        UrduDictionary.VOICE_WELCOME_HERO,
-                        "Welcome to Kisaan Dost. Tap the green button to begin."
-                    )
-                }
-            )
-        }
-
-        AnimatedVisibility(
-            visible = !showWelcome,
-            enter = fadeIn(animationSpec = tween(400)) + slideInHorizontally { it / 4 },
-            exit = fadeOut(animationSpec = tween(200))
-        ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -184,100 +172,28 @@ fun KisaanOnboardingScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Header: brand row + Progress indicator with icons + step counter
+            // Header Progress indicators (Million Dollar style sleek design)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 4.dp, bottom = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                    .padding(vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                for (i in 0..3) {
+                    val progressColor = when {
+                        currentStep == i -> Color(0xFF10B981) // active emerald
+                        currentStep > i -> Color(0xFF1B5E20)  // completed
+                        else -> Color(0xFF1F2420)             // pending
+                    }
+                    val weight = if (currentStep == i) 2f else 1f
                     Box(
                         modifier = Modifier
-                            .size(34.dp)
+                            .weight(weight)
+                            .height(6.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF10B981).copy(alpha = 0.18f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Agriculture,
-                            contentDescription = null,
-                            tint = Color(0xFF10B981),
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Text(
-                        text = UrduDictionary.APP_NAME,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFD1E8D1)
+                            .background(progressColor)
                     )
-                }
-                Text(
-                    text = "${currentStep + 1} / 4",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF10B981)
-                )
-            }
-
-            // Step progress with icons + labels under each (farmer-friendly)
-            val stepIcons = listOf(
-                Icons.Default.Lock to UrduDictionary.STEP_LABEL_AUTH,
-                Icons.Default.Person to UrduDictionary.STEP_LABEL_BIO,
-                Icons.Default.Map to UrduDictionary.STEP_LABEL_REGION,
-                Icons.Default.Spa to UrduDictionary.STEP_LABEL_CROP
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.Top
-            ) {
-                stepIcons.forEachIndexed { i, (icon, label) ->
-                    val isActive = currentStep == i
-                    val isDone = currentStep > i
-                    val accent = when {
-                        isActive -> Color(0xFF10B981)
-                        isDone -> Color(0xFF1B5E20)
-                        else -> Color(0xFF2A332C)
-                    }
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(if (isActive) 8.dp else 6.dp)
-                                .clip(CircleShape)
-                                .background(accent)
-                        )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(3.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (isDone) Icons.Default.Check else icon,
-                                contentDescription = label,
-                                tint = if (isActive || isDone) Color(0xFF10B981) else Color(0xFFE1E3E1).copy(alpha = 0.4f),
-                                modifier = Modifier.size(12.dp)
-                            )
-                            Text(
-                                text = label,
-                                fontSize = 9.sp,
-                                fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isActive) Color(0xFFD1E8D1) else Color(0xFFE1E3E1).copy(alpha = 0.45f),
-                                maxLines = 1
-                            )
-                        }
-                    }
                 }
             }
 
@@ -467,19 +383,10 @@ fun KisaanOnboardingScreen(
                     Spacer(modifier = Modifier.width(1.dp))
                 }
 
-                // Voice guidance helper — large, pulsing, discoverable for non-readers
-                val voicePulse by rememberInfiniteTransition(label = "voicePulse").animateFloat(
-                    initialValue = 0.92f,
-                    targetValue = 1.12f,
-                    animationSpec = infiniteRepeatable(
-                        animation = tween(1100, easing = FastOutSlowInEasing),
-                        repeatMode = RepeatMode.Reverse
-                    ),
-                    label = "voicePulseScale"
-                )
+                // Voice guidance helper button (Big green rounded speaker button)
                 IconButton(
                     onClick = {
-                        when (currentStep) {
+                        when(currentStep) {
                             0 -> playVoiceGuidance(UrduDictionary.VOICE_STEP_AUTH_HELP, "")
                             1 -> playVoiceGuidance(UrduDictionary.VOICE_STEP_NAME_HELP, "")
                             2 -> playVoiceGuidance(UrduDictionary.VOICE_STEP_REGION_HELP, "")
@@ -487,24 +394,23 @@ fun KisaanOnboardingScreen(
                         }
                     },
                     modifier = Modifier
-                        .scale(voicePulse)
                         .clip(CircleShape)
-                        .background(
-                            Brush.radialGradient(
-                                colors = listOf(
-                                    Color(0xFF10B981).copy(alpha = 0.35f),
-                                    Color(0xFF10B981).copy(alpha = 0.12f)
-                                )
-                            )
-                        )
-                        .border(2.dp, Color(0xFF10B981).copy(alpha = 0.5f), CircleShape)
-                        .size(60.dp)
+                        .background(Color(0xFF10B981).copy(alpha = 0.15f))
+                        .size(54.dp)
                 ) {
+                    val scale by rememberInfiniteTransition().animateFloat(
+                        initialValue = 0.9f,
+                        targetValue = 1.15f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(1200, easing = FastOutSlowInEasing),
+                            repeatMode = RepeatMode.Reverse
+                        )
+                    )
                     Icon(
                         imageVector = Icons.Default.VolumeUp,
                         contentDescription = "Read Aloud",
                         tint = Color(0xFF10B981),
-                        modifier = Modifier.size(30.dp)
+                        modifier = Modifier.size(26.dp)
                     )
                 }
 
@@ -538,7 +444,6 @@ fun KisaanOnboardingScreen(
                     Spacer(modifier = Modifier.width(1.dp))
                 }
             }
-        }
         }
     }
 }
@@ -616,18 +521,18 @@ fun OnboardingStepAuth(
                         )
                     }
                     Text(
-                        text = "آپ کا اپنا سمارٹ زرعی مینیجر",
+                        text = "آپ کا اپنا سمارٹ زرعی مینیجر (Smart Manager)",
                         fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
+                        fontSize = 13.sp,
                         color = Color(0xFFD1E8D1)
                     )
                 }
-
+                
                 Text(
                     text = "فصلوں کی نگرانی اور بیماریوں کے تدارک کے ساتھ ساتھ آپ کے مال مویشی کے لیے ڈاکٹر کی طرح بہترین گائیڈ۔",
-                    fontSize = 13.sp,
-                    color = Color(0xFFE1E3E1).copy(alpha = 0.9f),
-                    lineHeight = 19.sp
+                    fontSize = 11.sp,
+                    color = Color(0xFFE1E3E1).copy(alpha = 0.85f),
+                    lineHeight = 16.sp
                 )
 
                 Row(
@@ -978,16 +883,16 @@ fun OnboardingStepAuth(
 fun BadgeItem(ur: String, en: String, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(10.dp))
             .background(Color(0xFF0F1411))
-            .border(1.dp, Color(0xFF1F2922), RoundedCornerShape(12.dp))
-            .padding(horizontal = 6.dp, vertical = 10.dp),
+            .border(1.dp, Color(0xFF1F2922), RoundedCornerShape(10.dp))
+            .padding(horizontal = 4.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(text = ur, fontSize = 13.sp, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1)
-            Spacer(modifier = Modifier.height(3.dp))
-            Text(text = en, fontSize = 10.sp, color = Color(0xFF10B981), fontWeight = FontWeight.Medium, maxLines = 1)
+            Text(text = ur, fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1)
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(text = en, fontSize = 8.sp, color = Color(0xFF10B981), fontWeight = FontWeight.Medium, maxLines = 1)
         }
     }
 }
@@ -1018,7 +923,7 @@ fun OnboardingStepNameLanguage(
 
         Text(
             text = UrduDictionary.BIO_TITLE,
-            fontSize = 26.sp,
+            fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
             color = Color(0xFFD1E8D1),
             textAlign = TextAlign.Center
@@ -1026,9 +931,8 @@ fun OnboardingStepNameLanguage(
 
         Text(
             text = UrduDictionary.BIO_DESC,
-            fontSize = 14.sp,
-            lineHeight = 20.sp,
-            color = Color(0xFFE1E3E1).copy(alpha = 0.75f),
+            fontSize = 11.sp,
+            color = Color(0xFFE1E3E1).copy(alpha = 0.6f),
             textAlign = TextAlign.Center
         )
 
@@ -1089,11 +993,41 @@ fun OnboardingStepNameLanguage(
             }
         }
 
+        // Voice simulation fallback options
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+            horizontalAlignment = Alignment.Start
+        ) {
+            Text(
+                text = "آواز متبادل (ٹیسٹ کرنے کے لیے نام پر کلک کریں):",
+                fontSize = 11.sp,
+                color = Color(0xFF10B981),
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(bottom = 6.dp)
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("احمد علی", "محمد خان", "سرفراز احمد").forEach { testName ->
+                    Box(
+                        modifier = Modifier
+                            .background(Color(0xFF161B17), RoundedCornerShape(10.dp))
+                            .border(BorderStroke(1.dp, Color(0xFF2E3B30)), RoundedCornerShape(10.dp))
+                            .clickable { onNameChange(testName) }
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Text(testName, fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.height(2.dp))
 
         Text(
             text = UrduDictionary.DIALECT_TITLE,
-            fontSize = 16.sp,
+            fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
             color = Color(0xFFD1E8D1),
             modifier = Modifier.align(Alignment.Start)
@@ -1110,57 +1044,42 @@ fun OnboardingStepNameLanguage(
 
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.fillMaxWidth().height(230.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth().height(160.dp)
         ) {
             items(dialects) { item ->
                 val isSelected = dialect == item.id
-                val scale by animateFloatAsState(
-                    targetValue = if (isSelected) 1.04f else 1f,
-                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-                    label = "dialectScale"
-                )
                 Box(
                     modifier = Modifier
-                        .scale(scale)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(if (isSelected) item.accent.copy(alpha = 0.18f) else Color(0xFF131A15))
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (isSelected) item.accent.copy(alpha = 0.15f) else Color(0xFF131A15))
                         .border(
                             width = if (isSelected) 2.dp else 1.dp,
                             color = if (isSelected) item.accent else Color(0xFF3E4A40),
-                            shape = RoundedCornerShape(14.dp)
+                            shape = RoundedCornerShape(12.dp)
                         )
                         .clickable { onDialectChange(item.id) }
-                        .padding(14.dp),
+                        .padding(10.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(item.accent.copy(alpha = if (isSelected) 0.25f else 0.12f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = item.icon,
-                                contentDescription = item.label,
-                                tint = if (isSelected) item.accent else Color(0xFFE1E3E1).copy(alpha = 0.6f),
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Icon(
+                            imageVector = item.icon,
+                            contentDescription = item.label,
+                            tint = if (isSelected) item.accent else Color(0xFFE1E3E1).copy(alpha = 0.5f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = item.label,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                            fontSize = 14.sp,
-                            color = if (isSelected) Color.White else Color(0xFFE1E3E1).copy(alpha = 0.85f),
-                            textAlign = TextAlign.Center,
-                            maxLines = 2
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            fontSize = 12.sp,
+                            color = if (isSelected) Color.White else Color(0xFFE1E3E1).copy(alpha = 0.7f),
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
@@ -1183,24 +1102,16 @@ fun OnboardingStepRegion(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .size(72.dp)
-                .clip(CircleShape)
-                .background(Color(0xFF3B82F6).copy(alpha = 0.15f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.Map,
-                contentDescription = "Map icon",
-                tint = Color(0xFF3B82F6),
-                modifier = Modifier.size(40.dp)
-            )
-        }
+        Icon(
+            imageVector = Icons.Default.Map,
+            contentDescription = "Map icon",
+            tint = Color(0xFF3B82F6),
+            modifier = Modifier.size(54.dp)
+        )
 
         Text(
             text = UrduDictionary.REGION_TITLE,
-            fontSize = 26.sp,
+            fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
             color = Color(0xFFD1E8D1),
             textAlign = TextAlign.Center
@@ -1208,9 +1119,8 @@ fun OnboardingStepRegion(
 
         Text(
             text = UrduDictionary.REGION_DESC,
-            fontSize = 14.sp,
-            lineHeight = 20.sp,
-            color = Color(0xFFE1E3E1).copy(alpha = 0.75f),
+            fontSize = 12.sp,
+            color = Color(0xFFE1E3E1).copy(alpha = 0.6f),
             textAlign = TextAlign.Center
         )
 
@@ -1227,59 +1137,47 @@ fun OnboardingStepRegion(
         ) {
             regions.forEach { item ->
                 val isSelected = selectedRegion == item.id
-                val scale by animateFloatAsState(
-                    targetValue = if (isSelected) 1.02f else 1f,
-                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-                    label = "regionScale"
-                )
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .scale(scale)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(if (isSelected) item.color.copy(alpha = 0.14f) else Color(0xFF131A15))
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (isSelected) item.color.copy(alpha = 0.12f) else Color(0xFF131A15))
                         .border(
                             width = if (isSelected) 2.dp else 1.dp,
                             color = if (isSelected) item.color else Color(0xFF3E4A40),
-                            shape = RoundedCornerShape(14.dp)
+                            shape = RoundedCornerShape(12.dp)
                         )
                         .clickable { onRegionSelect(item.id) }
-                        .padding(horizontal = 14.dp, vertical = 14.dp),
+                        .padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.weight(1f)
                     ) {
                         Box(
                             modifier = Modifier
                                 .clip(CircleShape)
-                                .background(item.color.copy(alpha = 0.22f))
-                                .size(48.dp),
+                                .background(item.color.copy(alpha = 0.2f))
+                                .size(40.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = item.icon,
-                                contentDescription = null,
-                                tint = item.color,
-                                modifier = Modifier.size(26.dp)
-                            )
+                            Icon(imageVector = item.icon, contentDescription = null, tint = item.color)
                         }
 
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Column {
                             Text(
                                 text = "صوبہ ${item.labelUrdu}",
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 17.sp,
+                                fontSize = 15.sp,
                                 color = Color.White
                             )
                             Text(
                                 text = item.detailsUrdu,
-                                fontSize = 13.sp,
-                                lineHeight = 18.sp,
-                                color = Color(0xFFE1E3E1).copy(alpha = 0.7f)
+                                fontSize = 11.sp,
+                                color = Color(0xFFE1E3E1).copy(alpha = 0.6f)
                             )
                         }
                     }
@@ -1313,24 +1211,16 @@ fun OnboardingStepCrops(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .size(72.dp)
-                .clip(CircleShape)
-                .background(Color(0xFF10B981).copy(alpha = 0.15f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.Spa,
-                contentDescription = "Crop icon",
-                tint = Color(0xFF10B981),
-                modifier = Modifier.size(40.dp)
-            )
-        }
+        Icon(
+            imageVector = Icons.Default.Spa,
+            contentDescription = "Crop icon",
+            tint = Color(0xFF10B981),
+            modifier = Modifier.size(54.dp)
+        )
 
         Text(
             text = UrduDictionary.CROP_TITLE,
-            fontSize = 26.sp,
+            fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
             color = Color(0xFFD1E8D1),
             textAlign = TextAlign.Center
@@ -1338,9 +1228,8 @@ fun OnboardingStepCrops(
 
         Text(
             text = UrduDictionary.CROP_DESC,
-            fontSize = 14.sp,
-            lineHeight = 20.sp,
-            color = Color(0xFFE1E3E1).copy(alpha = 0.75f),
+            fontSize = 11.sp,
+            color = Color(0xFFE1E3E1).copy(alpha = 0.6f),
             textAlign = TextAlign.Center
         )
 
@@ -1355,39 +1244,32 @@ fun OnboardingStepCrops(
 
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(220.dp)
+                .height(140.dp)
         ) {
             items(crops) { item ->
                 val isSelected = selectedCrop == item.id
-                val scale by animateFloatAsState(
-                    targetValue = if (isSelected) 1.04f else 1f,
-                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-                    label = "cropScale"
-                )
                 Box(
                     modifier = Modifier
-                        .scale(scale)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(if (isSelected) item.color.copy(alpha = 0.18f) else Color(0xFF131A15))
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (isSelected) item.color.copy(alpha = 0.15f) else Color(0xFF131A15))
                         .border(
                             width = if (isSelected) 2.dp else 1.dp,
                             color = if (isSelected) item.color else Color(0xFF3E4A40),
-                            shape = RoundedCornerShape(14.dp)
+                            shape = RoundedCornerShape(12.dp)
                         )
                         .clickable { onCropSelect(item.id) }
-                        .padding(16.dp),
+                        .padding(12.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = item.label,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        fontSize = 16.sp,
-                        lineHeight = 22.sp,
-                        color = if (isSelected) Color.White else Color(0xFFE1E3E1).copy(alpha = 0.85f),
+                        fontSize = 13.sp,
+                        color = if (isSelected) Color.White else Color(0xFFE1E3E1).copy(alpha = 0.8f),
                         textAlign = TextAlign.Center
                     )
                 }
@@ -1415,218 +1297,3 @@ fun OnboardingStepCrops(
 data class DialectItem(val id: String, val label: String, val icon: ImageVector, val accent: Color)
 data class RegionCardItem(val id: String, val labelUrdu: String, val detailsUrdu: String, val icon: ImageVector, val color: Color)
 data class CropItem(val id: String, val label: String, val color: Color)
-
-@Composable
-fun OnboardingStepWelcome(
-    onStart: () -> Unit,
-    onVoicePlay: () -> Unit
-) {
-    val heroPulse by rememberInfiniteTransition(label = "heroPulse").animateFloat(
-        initialValue = 0.95f,
-        targetValue = 1.05f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1800, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "heroPulseScale"
-    )
-
-    // Auto-play the voice greeting once when the welcome appears
-    LaunchedEffect(Unit) {
-        delay(900)
-        onVoicePlay()
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(18.dp)
-    ) {
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // App brand row
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF10B981).copy(alpha = 0.2f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Agriculture,
-                    contentDescription = null,
-                    tint = Color(0xFF10B981),
-                    modifier = Modifier.size(26.dp)
-                )
-            }
-            Text(
-                text = UrduDictionary.APP_NAME,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFFD1E8D1)
-            )
-        }
-
-        // Hero illustration in a soft glowing ring
-        Box(
-            modifier = Modifier
-                .scale(heroPulse)
-                .size(190.dp)
-                .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(
-                            Color(0xFF10B981).copy(alpha = 0.28f),
-                            Color(0xFF0A0C0B).copy(alpha = 0f)
-                        )
-                    )
-                )
-                .border(2.dp, Color(0xFF10B981).copy(alpha = 0.4f), CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.kisaan_companion_icon),
-                contentDescription = "Kisaan Dost mascot",
-                modifier = Modifier
-                    .size(160.dp)
-                    .clip(CircleShape),
-                contentScale = ContentScale.Crop
-            )
-        }
-
-        Text(
-            text = UrduDictionary.WELCOME_HERO_TITLE,
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
-            textAlign = TextAlign.Center
-        )
-
-        Text(
-            text = UrduDictionary.WELCOME_HERO_TAGLINE,
-            fontSize = 15.sp,
-            lineHeight = 22.sp,
-            color = Color(0xFFE1E3E1).copy(alpha = 0.85f),
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 4.dp)
-        )
-
-        // Voice-first invitation: tappable hint that the app talks to you
-        Row(
-            modifier = Modifier
-                .clip(RoundedCornerShape(28.dp))
-                .background(Color(0xFF10B981).copy(alpha = 0.12f))
-                .border(1.dp, Color(0xFF10B981).copy(alpha = 0.35f), RoundedCornerShape(28.dp))
-                .clickable(onClick = onVoicePlay)
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.VolumeUp,
-                contentDescription = null,
-                tint = Color(0xFF10B981),
-                modifier = Modifier.size(20.dp)
-            )
-            Text(
-                text = UrduDictionary.WELCOME_TAP_TO_HEAR,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFFD1E8D1)
-            )
-        }
-
-        // Four feature rows — large, clear, scannable
-        val features = listOf(
-            Triple(Icons.Default.Mic, UrduDictionary.WELCOME_FEATURE_VOICE to UrduDictionary.WELCOME_FEATURE_VOICE_EN, Color(0xFF10B981)),
-            Triple(Icons.Default.Spa, UrduDictionary.WELCOME_FEATURE_CROP to UrduDictionary.WELCOME_FEATURE_CROP_EN, Color(0xFFF5B041)),
-            Triple(Icons.Default.Pets, UrduDictionary.WELCOME_FEATURE_VET to UrduDictionary.WELCOME_FEATURE_VET_EN, Color(0xFFEF4444)),
-            Triple(Icons.Default.WbSunny, UrduDictionary.WELCOME_FEATURE_WEATHER to UrduDictionary.WELCOME_FEATURE_WEATHER_EN, Color(0xFF3B82F6))
-        )
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            features.forEach { (icon, labels, color) ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0xFF131A15))
-                        .border(1.dp, Color(0xFF2A3329), RoundedCornerShape(14.dp))
-                        .padding(horizontal = 14.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(42.dp)
-                            .clip(CircleShape)
-                            .background(color.copy(alpha = 0.18f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            tint = color,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = labels.first,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Text(
-                            text = labels.second,
-                            fontSize = 12.sp,
-                            color = Color(0xFFE1E3E1).copy(alpha = 0.6f)
-                        )
-                    }
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = null,
-                        tint = color.copy(alpha = 0.65f),
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        // Big, unmistakable Get Started CTA
-        Button(
-            onClick = onStart,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF10B981),
-                contentColor = Color.White
-            ),
-            shape = RoundedCornerShape(16.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(60.dp)
-        ) {
-            Text(
-                text = UrduDictionary.WELCOME_GET_STARTED,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Icon(imageVector = Icons.Default.ArrowForward, contentDescription = null)
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-    }
-}

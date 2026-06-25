@@ -68,6 +68,7 @@ fun MainFarmersScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val selectedLanguage by viewModel.selectedLanguage.collectAsStateWithLifecycle()
     val selectedCategory by viewModel.selectedCategory.collectAsStateWithLifecycle()
+    val allKnowledge by viewModel.allKnowledge.collectAsStateWithLifecycle()
 
     var inputQueryText by remember { mutableStateOf("") }
     var showSessionDrawer by remember { mutableStateOf(false) }
@@ -355,6 +356,7 @@ fun MainFarmersScreen(
                     OfflineFarmingGuide(
                         selectedLanguage = selectedLanguage,
                         onClose = { showHelpGuideDialog = false },
+                        knowledgeList = allKnowledge,
                         modifier = Modifier.weight(1f)
                     )
                 } else {
@@ -2002,7 +2004,8 @@ fun CustomVoiceListeningDialog(
                             val text = matches?.firstOrNull() ?: ""
                             if (text.isNotBlank()) {
                                 parsedText = text
-                                onSpeechResult(text)
+                                statusText = "آواز منتقل ہو گئی!"
+                                subStatusText = "Speech converted. You can now edit or send below."
                             } else {
                                 statusText = "کوئی لفظ سمجھ میں نہیں آیا۔"
                             }
@@ -2023,8 +2026,10 @@ fun CustomVoiceListeningDialog(
                         putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                         putExtra(RecognizerIntent.EXTRA_LANGUAGE, language.bcp47Code)
                         putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, language.bcp47Code)
+                        putExtra(RecognizerIntent.EXTRA_SUPPORTED_LANGUAGES, arrayOf(language.bcp47Code, "ur-PK", "ur", "en-US"))
+                        putExtra("android.speech.extra.EXTRA_ADDITIONAL_LANGUAGES", arrayOf(language.bcp47Code, "ur-PK", "ur", "en-US"))
                         putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
                     }
                     startListening(intent)
                 }
@@ -2156,26 +2161,117 @@ fun CustomVoiceListeningDialog(
                     fontWeight = FontWeight.Light
                 )
 
+                OutlinedTextField(
+                    value = parsedText,
+                    onValueChange = { parsedText = it },
+                    placeholder = { Text("یہاں اپنا سوال لکھیں یا آواز سے تبدیل کریں...", fontSize = 12.sp, color = Color.Gray) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    textStyle = LocalTextStyle.current.copy(color = Color.White, fontSize = 14.sp, textDirection = TextDirection.ContentOrRtl),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFF10B981),
+                        unfocusedBorderColor = Color(0xFF3E4A40),
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedContainerColor = Color(0xFF161B17),
+                        unfocusedContainerColor = Color(0xFF111411)
+                    ),
+                    shape = RoundedCornerShape(14.dp),
+                    maxLines = 3,
+                    trailingIcon = {
+                        if (parsedText.isNotBlank()) {
+                            IconButton(onClick = { onSpeechResult(parsedText) }) {
+                                Icon(
+                                    imageVector = Icons.Default.Send,
+                                    contentDescription = "Send",
+                                    tint = Color(0xFF10B981)
+                                )
+                            }
+                        }
+                    }
+                )
+
                 if (parsedText.isNotBlank()) {
-                    Box(
+                    Button(
+                        onClick = { onSpeechResult(parsedText) },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 12.dp)
-                            .background(Color(0xFF1F2420), RoundedCornerShape(12.dp))
-                            .border(BorderStroke(1.dp, Color(0xFF3E4A40)), RoundedCornerShape(12.dp))
-                            .padding(12.dp)
+                            .height(44.dp)
+                            .padding(bottom = 8.dp)
                     ) {
-                        Text(
-                            text = parsedText,
-                            fontSize = 14.sp,
-                            color = Color(0xFFD1E8D1),
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth(),
-                            style = LocalTextStyle.current.copy(textDirection = TextDirection.ContentOrRtl)
-                        )
+                        Icon(imageVector = Icons.Default.Send, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("سوال پوچھیں (Ask Kisaan AI)", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
                 } else {
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "آواز ٹیسٹ کرنے کے لیے نیچے دیے گئے سوال پر کلک کریں:",
+                        fontSize = 11.sp,
+                        color = Color(0xFF10B981),
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.align(Alignment.Start).padding(bottom = 6.dp)
+                    )
+                    
+                    val testQueriesUr = listOf(
+                        "🌾 گندم کی کاشت اور کھاد",
+                        "🐛 سفید مکھی کا دیسی علاج",
+                        "🚜 لیزر کراہ کے فوائد اور بچت",
+                        "🎋 گنے کی کاشت اور پیداوار"
+                    )
+                    
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        testQueriesUr.forEach { queryText ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color(0xFF161B17), RoundedCornerShape(10.dp))
+                                    .border(BorderStroke(1.dp, Color(0xFF2E3B30)), RoundedCornerShape(10.dp))
+                                    .clickable {
+                                        parsedText = queryText
+                                        statusText = "آواز منتقل ہو گئی! (سیمولیشن)"
+                                        subStatusText = "Voice Simulated. Press button below to submit."
+                                        rmsValue = 8f
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(18.dp)
+                                        .background(Color(0xFF10B981).copy(alpha = 0.2f), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Mic,
+                                        contentDescription = null,
+                                        tint = Color(0xFF10B981),
+                                        modifier = Modifier.size(11.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = queryText,
+                                    fontSize = 12.sp,
+                                    color = Color.White,
+                                    modifier = Modifier.weight(1f),
+                                    style = LocalTextStyle.current.copy(textDirection = TextDirection.ContentOrRtl)
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.PlayArrow,
+                                    contentDescription = null,
+                                    tint = Color.Gray,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+                    }
                 }
 
                 Row(

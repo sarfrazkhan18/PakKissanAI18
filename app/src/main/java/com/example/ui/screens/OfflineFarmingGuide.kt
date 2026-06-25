@@ -30,6 +30,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.AgriKnowledge
 import com.example.viewmodel.LanguageOption
 import java.util.Locale
 
@@ -45,12 +46,59 @@ data class FarmingTip(
     val iconEmoji: String
 )
 
+fun AgriKnowledge.toFarmingTip(): FarmingTip {
+    val emoji = when (category.lowercase()) {
+        "crops" -> {
+            val lowerTitle = titleEn.lowercase()
+            if (lowerTitle.contains("wheat")) "🌾"
+            else if (lowerTitle.contains("rice")) "🍚"
+            else if (lowerTitle.contains("cotton")) "☁️"
+            else if (lowerTitle.contains("sugarcane")) "🎋"
+            else if (lowerTitle.contains("maize")) "🌽"
+            else if (lowerTitle.contains("mango")) "🥭"
+            else if (lowerTitle.contains("citrus")) "🍊"
+            else "🌾"
+        }
+        "pests" -> "🐛"
+        "diseases" -> "🍂"
+        "soils" -> "🌱"
+        "weather" -> "☀️"
+        "practices" -> "🚜"
+        else -> "📚"
+    }
+
+    val stepsE = detailsEn.split("\n")
+        .map { it.trim().replace(Regex("^[0-9]+\\.\\s*"), "").replace(Regex("^-\\s*"), "") }
+        .filter { it.isNotBlank() }
+    val stepsU = detailsUr.split("\n")
+        .map { it.trim().replace(Regex("^[0-9]+\\.\\s*"), "").replace(Regex("^-\\s*"), "") }
+        .filter { it.isNotBlank() }
+
+    return FarmingTip(
+        id = id,
+        titleUrdu = titleUr,
+        titleEnglish = titleEn,
+        category = when (category.lowercase()) {
+            "pests", "diseases" -> "pests"
+            "soils", "practices" -> "fertilizer"
+            "weather" -> "water"
+            else -> category.lowercase()
+        },
+        contentUrdu = descriptionUr,
+        contentEnglish = descriptionEn,
+        stepsUrdu = stepsU,
+        stepsEnglish = stepsE,
+        iconEmoji = emoji
+    )
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun OfflineFarmingGuide(
     selectedLanguage: LanguageOption,
     onClose: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    knowledgeList: List<AgriKnowledge> = emptyList()
 ) {
     val context = LocalContext.current
     var searchQuery by remember { mutableStateOf("") }
@@ -95,11 +143,17 @@ fun OfflineFarmingGuide(
         }
     }
 
-    val staticTips = remember { getStaticFarmingTips() }
+    val displayTips = remember(knowledgeList) {
+        if (knowledgeList.isNotEmpty()) {
+            knowledgeList.map { it.toFarmingTip() }
+        } else {
+            getStaticFarmingTips()
+        }
+    }
 
     // Filter logic
-    val filteredTips = remember(searchQuery, selectedCategoryTab) {
-        staticTips.filter { tip ->
+    val filteredTips = remember(displayTips, searchQuery, selectedCategoryTab) {
+        displayTips.filter { tip ->
             val matchesCategory = selectedCategoryTab == "All" || tip.category.equals(selectedCategoryTab, ignoreCase = true)
             val matchesSearch = if (searchQuery.isBlank()) {
                 true

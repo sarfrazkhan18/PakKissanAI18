@@ -4,28 +4,6 @@ object UrduDictionary {
     // App Branding & General
     const val APP_NAME = "کِسان دوست"
     const val APP_SUBTITLE = "پاکستان کی پہلی کسان ایپ جو آواز اور بٹنوں سے چلتی ہے"
-
-    // Welcome Hero Step
-    const val WELCOME_HERO_TITLE = "السلام علیکم کسان بھائی!"
-    const val WELCOME_HERO_TAGLINE = "آپ کے کھیت، مویشی اور فصلوں کا ذاتی مددگار — اردو میں، آواز سے، بالکل مفت۔"
-    const val WELCOME_FEATURE_VOICE = "آواز سے پوچھیں"
-    const val WELCOME_FEATURE_VOICE_EN = "Just speak"
-    const val WELCOME_FEATURE_CROP = "فصل کا علاج"
-    const val WELCOME_FEATURE_CROP_EN = "Crop care"
-    const val WELCOME_FEATURE_VET = "مویشی کا ڈاکٹر"
-    const val WELCOME_FEATURE_VET_EN = "Livestock vet"
-    const val WELCOME_FEATURE_WEATHER = "موسم اور منڈی"
-    const val WELCOME_FEATURE_WEATHER_EN = "Weather + mandi"
-    const val WELCOME_GET_STARTED = "شروع کریں"
-    const val WELCOME_TAP_TO_HEAR = "سنیں — یہ ایپ آپ سے باتیں کرتی ہے"
-    const val VOICE_WELCOME_HERO = "السلام علیکم پیارے کسان بھائی۔ کِسان دوست میں خوش آمدید۔ یہ ایپ آپ سے اردو میں باتیں کرے گی، آواز سے سوال سن کر آپ کو ہر فصل، مویشی اور موسم کی رہنمائی دے گی۔ شروع کرنے کے لیے سبز بٹن دبائیے۔"
-
-    // Step Labels (for progress indicator)
-    const val STEP_LABEL_WELCOME = "خوش آمدید"
-    const val STEP_LABEL_AUTH = "رجسٹریشن"
-    const val STEP_LABEL_BIO = "تعارف"
-    const val STEP_LABEL_REGION = "علاقہ"
-    const val STEP_LABEL_CROP = "فصل"
     
     // Auth and Onboarding Steps
     const val REGISTRATION_TITLE = "کِسان دوست نظام"

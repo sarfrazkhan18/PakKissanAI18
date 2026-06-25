@@ -3,6 +3,20 @@ package com.example.data
 import kotlinx.coroutines.flow.Flow
 
 class KisaanRepository(private val dao: KisaanDao) {
+    val allKnowledge: Flow<List<AgriKnowledge>> = dao.getAllKnowledge()
+
+    fun getKnowledgeByCategory(category: String): Flow<List<AgriKnowledge>> =
+        dao.getKnowledgeByCategory(category)
+
+    suspend fun getKnowledgeCount(): Int = dao.getKnowledgeCount()
+
+    suspend fun insertKnowledge(knowledge: List<AgriKnowledge>) {
+        dao.insertKnowledge(knowledge)
+    }
+
+    suspend fun searchKnowledge(query: String): List<AgriKnowledge> =
+        dao.searchKnowledge(query)
+
     val allSessions: Flow<List<ChatSession>> = dao.getAllSessions()
 
     fun getSessionsForFarmer(phoneNumber: String): Flow<List<ChatSession>> =

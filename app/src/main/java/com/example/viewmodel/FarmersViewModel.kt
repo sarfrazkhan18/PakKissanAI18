@@ -60,6 +60,13 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
     val userProfile: StateFlow<UserProfile?> = repository.userProfile
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
+    val allKnowledge: StateFlow<List<AgriKnowledge>> = repository.allKnowledge
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
     // All active chat companion sessions dynamically reactive to the active farmer
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val sessions: StateFlow<List<ChatSession>> = userProfile
@@ -154,6 +161,17 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
     val selectedCategory: StateFlow<String> = _selectedCategory.asStateFlow()
 
     init {
+        // Seed agricultural knowledge database if empty
+        viewModelScope.launch {
+            try {
+                if (repository.getKnowledgeCount() == 0) {
+                    repository.insertKnowledge(AgriKnowledgeSeeder.getInitialKnowledge())
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
         // Automatically create a default session if sessions list is empty
         viewModelScope.launch {
             sessions.collect { list ->
@@ -333,12 +351,58 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
             "No profile setup completed yet. Respond friendly to the generic farmer."
         }
 
+        // Search local database for verified Pakistani agricultural guidelines (RAG)
+        val matches = mutableListOf<AgriKnowledge>()
+        try {
+            val directMatches = repository.searchKnowledge(userPrompt.trim())
+            matches.addAll(directMatches)
+            
+            // Split prompt into words to check for individual major keywords (e.g., gandum, whitefly, cotton, etc.)
+            val words = userPrompt.split(Regex("[\\s,?.۔،]+"))
+            for (word in words) {
+                if (word.length >= 3 && matches.size < 3) {
+                    val wordMatches = repository.searchKnowledge(word)
+                    for (wm in wordMatches) {
+                        if (matches.none { it.id == wm.id }) {
+                            matches.add(wm)
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        val verifiedContext = if (matches.isNotEmpty()) {
+            val contextText = matches.joinToString("\n\n") { match ->
+                """
+                    ### VERIFIED LOCAL DATA FOR ${match.titleEn} (${match.titleUr}):
+                    Category: ${match.category}
+                    - English Verified Guidelines:
+                    ${match.detailsEn}
+                    - Urdu Verified Guidelines:
+                    ${match.detailsUr}
+                """.trimIndent()
+            }
+            """
+                CRITICAL LOCALIZED KNOWLEDGE SOURCE:
+                Below are verified regional agricultural guidelines retrieved from Pakistan's official agricultural database matching the user's question.
+                You MUST use this specific local information to answer the farmer's question. Prioritize these regional details (such as seed rates, critical water cycles, local pest treatment etc.) over general generic global training data:
+                
+                $contextText
+            """.trimIndent()
+        } else {
+            ""
+        }
+
         // System Instructions in Urdu / Punjabi / Pushto adaptive context
         val systemDirective = """
             You are Kisaan Dost (کسان دوست), a friendly, expert agricultural advisor for Pakistani farmers. 
             Your goal is to guide farmers with highly practical, cost-effective, climate-resilient, and localized agricultural solutions in Pakistan.
             
             $personalizationIntro
+            
+            $verifiedContext
             
             Key Rules:
             1. You must respond in the farmer's preferred language option: ${_selectedLanguage.value.displayName}.
