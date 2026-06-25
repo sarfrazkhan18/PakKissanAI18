@@ -17,6 +17,7 @@ object UrduDictionary {
     const val WELCOME_FEATURE_WEATHER = "موسم اور منڈی"
     const val WELCOME_FEATURE_WEATHER_EN = "Weather + mandi"
     const val WELCOME_GET_STARTED = "شروع کریں"
+    const val WELCOME_HAVE_ACCOUNT = "میرا اکاؤنٹ پہلے سے ہے — لاگ ان کریں"
     const val WELCOME_TAP_TO_HEAR = "سنیں — یہ ایپ آپ سے باتیں کرتی ہے"
     const val VOICE_WELCOME_HERO = "السلام علیکم پیارے کسان بھائی۔ کِسان دوست میں خوش آمدید۔ یہ ایپ آپ سے اردو میں باتیں کرے گی، آواز سے سوال سن کر آپ کو ہر فصل، مویشی اور موسم کی رہنمائی دے گی۔ شروع کرنے کے لیے سبز بٹن دبائیے۔"
 

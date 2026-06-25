@@ -101,6 +101,18 @@ fun KisaanOnboardingScreen(
 
     // Initial welcome voice greeting is handled inside OnboardingStepWelcome.
 
+    // Auto-play voice guidance whenever the farmer advances to a new step — for non-readers.
+    LaunchedEffect(currentStep, showWelcome) {
+        if (showWelcome) return@LaunchedEffect
+        delay(400)
+        when (currentStep) {
+            0 -> playVoiceGuidance(UrduDictionary.VOICE_STEP_AUTH_HELP, "")
+            1 -> playVoiceGuidance(UrduDictionary.VOICE_STEP_NAME_HELP, "")
+            2 -> playVoiceGuidance(UrduDictionary.VOICE_STEP_REGION_HELP, "")
+            3 -> playVoiceGuidance(UrduDictionary.VOICE_STEP_CROPS_HELP, "")
+        }
+    }
+
     // Voice to Text launcher for name dictation
     val speechToTextLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -118,7 +130,11 @@ fun KisaanOnboardingScreen(
     fun startSpeechRecognizer() {
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            // Pin Urdu (Pakistan) on both extras; force online so devices without offline ur-PK
+            // packs don't silently fall back to hi-IN (Hindi).
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ur-PK")
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "ur-PK")
+            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false)
             putExtra(RecognizerIntent.EXTRA_PROMPT, UrduDictionary.VOICE_DICTATION_HINT)
         }
         try {
@@ -155,11 +171,12 @@ fun KisaanOnboardingScreen(
         ) {
             OnboardingStepWelcome(
                 onStart = {
+                    isLoginMode = false
                     showWelcome = false
-                    playVoiceGuidance(
-                        UrduDictionary.VOICE_STEP_AUTH_HELP,
-                        "Please register with your phone number."
-                    )
+                },
+                onExistingAccount = {
+                    isLoginMode = true
+                    showWelcome = false
                 },
                 onVoicePlay = {
                     playVoiceGuidance(
@@ -1132,10 +1149,10 @@ fun OnboardingStepNameLanguage(
                             shape = RoundedCornerShape(14.dp)
                         )
                         .clickable { onDialectChange(item.id) }
-                        .padding(14.dp),
-                    contentAlignment = Alignment.Center
+                        .padding(14.dp)
                 ) {
                     Column(
+                        modifier = Modifier.align(Alignment.Center),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
@@ -1162,6 +1179,23 @@ fun OnboardingStepNameLanguage(
                             textAlign = TextAlign.Center,
                             maxLines = 2
                         )
+                    }
+                    if (isSelected) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .size(20.dp)
+                                .clip(CircleShape)
+                                .background(item.accent),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -1379,8 +1413,7 @@ fun OnboardingStepCrops(
                             shape = RoundedCornerShape(14.dp)
                         )
                         .clickable { onCropSelect(item.id) }
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
+                        .padding(16.dp)
                 ) {
                     Text(
                         text = item.label,
@@ -1388,8 +1421,26 @@ fun OnboardingStepCrops(
                         fontSize = 16.sp,
                         lineHeight = 22.sp,
                         color = if (isSelected) Color.White else Color(0xFFE1E3E1).copy(alpha = 0.85f),
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.align(Alignment.Center)
                     )
+                    if (isSelected) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .size(20.dp)
+                                .clip(CircleShape)
+                                .background(item.color),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -1419,6 +1470,7 @@ data class CropItem(val id: String, val label: String, val color: Color)
 @Composable
 fun OnboardingStepWelcome(
     onStart: () -> Unit,
+    onExistingAccount: () -> Unit,
     onVoicePlay: () -> Unit
 ) {
     val heroPulse by rememberInfiniteTransition(label = "heroPulse").animateFloat(
@@ -1625,6 +1677,19 @@ fun OnboardingStepWelcome(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Icon(imageVector = Icons.Default.ArrowForward, contentDescription = null)
+        }
+
+        // Quick login shortcut for returning farmers
+        TextButton(
+            onClick = onExistingAccount,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = UrduDictionary.WELCOME_HAVE_ACCOUNT,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFFD1E8D1).copy(alpha = 0.85f)
+            )
         }
 
         Spacer(modifier = Modifier.height(8.dp))
