@@ -5,6 +5,25 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface KisaanDao {
+    // Agri Knowledge Queries
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertKnowledge(knowledge: List<AgriKnowledge>)
+
+    @Query("SELECT * FROM agri_knowledge WHERE id = :id")
+    suspend fun getKnowledgeById(id: String): AgriKnowledge?
+
+    @Query("SELECT * FROM agri_knowledge WHERE category = :category")
+    fun getKnowledgeByCategory(category: String): Flow<List<AgriKnowledge>>
+
+    @Query("SELECT * FROM agri_knowledge")
+    fun getAllKnowledge(): Flow<List<AgriKnowledge>>
+
+    @Query("SELECT COUNT(*) FROM agri_knowledge")
+    suspend fun getKnowledgeCount(): Int
+
+    @Query("SELECT * FROM agri_knowledge WHERE keywords LIKE '%' || :query || '%' OR titleEn LIKE '%' || :query || '%' OR titleUr LIKE '%' || :query || '%'")
+    suspend fun searchKnowledge(query: String): List<AgriKnowledge>
+
     // Session Queries
     @Query("SELECT * FROM chat_sessions ORDER BY lastUpdated DESC")
     fun getAllSessions(): Flow<List<ChatSession>>
