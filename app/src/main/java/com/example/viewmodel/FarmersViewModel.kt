@@ -472,22 +472,12 @@ sealed interface FarmersUiState {
     data class Error(val message: String) : FarmersUiState
 }
 
-enum class LanguageOption(
-    val displayName: String,
-    val bcp47Code: String,
-    val sampleQuestion: String,
-    val audioLocale: String,
-    // Locale actually used by Android SpeechRecognizer. Pakistani Punjabi/Sindhi/Pashto/Seraiki/Balochi
-    // have no widely-installed STT models, so devices silently fall back to hi-IN (Hindi). We instead
-    // force ur-PK (well supported) for all Pakistani languages — the farmer's Urdu/regional speech is
-    // very close phonetically, and the Gemini system instruction handles replying in their dialect.
-    val sttPrimary: String = bcp47Code
-) {
-    URDU("اردو (Urdu)", "ur-PK", "گندم کی پیداوار بڑھانے کا طریقہ کیا ہے؟", "ur", "ur-PK"),
-    PUNJABI("پنجابی (Punjabi)", "pa-PK", "پانی لانے دا صحیح وقت کڑا اے؟", "ur", "ur-PK"),
-    SINDHI("سنڌي (Sindhi)", "sd-PK", "ڪڻڪ جي پوکيءَ لاءِ بھترين وقت ڪھڙو آھي؟", "ur", "ur-PK"),
-    PASHTO("پښتو (Pashto)", "ps-PK", "د غنمو د فصل دپاره کوه ښه ده؟", "ur", "ur-PK"),
-    SERAIKI("سرائیکی (Seraiki)", "ur-PK", "کپاہ کوں کیڑے توں بچاونڑ دا طریقہ ڈساؤ۔", "ur", "ur-PK"),
-    BALOCHI("بلوچی (Balochi)", "ur-PK", "مئے زمین ءَ پہ آپ جنگ ءَ چے کنگی انت؟", "ur", "ur-PK"),
-    ENGLISH("انگریزی (English)", "en-PK", "How to deal with cotton whiteflies pest attack?", "en", "en-PK")
+enum class LanguageOption(val displayName: String, val bcp47Code: String, val sampleQuestion: String, val audioLocale: String) {
+    URDU("اردو (Urdu)", "ur-PK", "گندم کی پیداوار بڑھانے کا طریقہ کیا ہے؟", "ur"),
+    PUNJABI("پنجابی (Punjabi)", "pa-PK", "پانی لانے دا صحیح وقت کڑا اے؟", "ur"), // Fallback to ur for TTS if punjabi engine not loaded
+    SINDHI("سنڌي (Sindhi)", "sd-PK", "ڪڻڪ جي پوکيءَ لاءِ بھترين وقت ڪھڙو آھي؟", "ur"),
+    PASHTO("پښتو (Pashto)", "ps-PK", "د غنمو د فصل دپاره کوه ښه ده؟", "ur"),
+    SERAIKI("سرائیکی (Seraiki)", "ur-PK", "کپاہ کوں کیڑے توں بچاونڑ دا طریقہ ڈساؤ۔", "ur"),
+    BALOCHI("بلوچی (Balochi)", "ur-PK", "مئے زمین ءَ پہ آپ جنگ ءَ چے کنگی انت؟", "ur"),
+    ENGLISH("انگریزی (English)", "en-PK", "How to deal with cotton whiteflies pest attack?", "en")
 }

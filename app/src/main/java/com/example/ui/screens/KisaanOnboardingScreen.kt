@@ -105,18 +105,6 @@ fun KisaanOnboardingScreen(
         )
     }
 
-    // Auto-play voice guidance whenever the farmer advances to a new step — for non-readers.
-    LaunchedEffect(currentStep, showWelcome) {
-        if (showWelcome) return@LaunchedEffect
-        delay(400)
-        when (currentStep) {
-            0 -> playVoiceGuidance(UrduDictionary.VOICE_STEP_AUTH_HELP, "")
-            1 -> playVoiceGuidance(UrduDictionary.VOICE_STEP_NAME_HELP, "")
-            2 -> playVoiceGuidance(UrduDictionary.VOICE_STEP_REGION_HELP, "")
-            3 -> playVoiceGuidance(UrduDictionary.VOICE_STEP_CROPS_HELP, "")
-        }
-    }
-
     // Voice to Text launcher for name dictation
     val speechToTextLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -134,11 +122,10 @@ fun KisaanOnboardingScreen(
     fun startSpeechRecognizer() {
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            // Pin Urdu (Pakistan) on both extras; force online so devices without offline ur-PK
-            // packs don't silently fall back to hi-IN (Hindi).
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ur-PK")
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "ur-PK")
-            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false)
+            putExtra(RecognizerIntent.EXTRA_SUPPORTED_LANGUAGES, arrayOf("ur-PK", "ur", "en-US"))
+            putExtra("android.speech.extra.EXTRA_ADDITIONAL_LANGUAGES", arrayOf("ur-PK", "ur", "en-US"))
             putExtra(RecognizerIntent.EXTRA_PROMPT, UrduDictionary.VOICE_DICTATION_HINT)
         }
         try {
@@ -176,35 +163,6 @@ fun KisaanOnboardingScreen(
                 )
         )
 
-        // Animated welcome hero gate before the stepper begins
-        AnimatedVisibility(
-            visible = showWelcome,
-            enter = fadeIn(animationSpec = tween(400)),
-            exit = fadeOut(animationSpec = tween(300)) + slideOutHorizontally { -it / 4 }
-        ) {
-            OnboardingStepWelcome(
-                onStart = {
-                    isLoginMode = false
-                    showWelcome = false
-                },
-                onExistingAccount = {
-                    isLoginMode = true
-                    showWelcome = false
-                },
-                onVoicePlay = {
-                    playVoiceGuidance(
-                        UrduDictionary.VOICE_WELCOME_HERO,
-                        "Welcome to Kisaan Dost. Tap the green button to begin."
-                    )
-                }
-            )
-        }
-
-        AnimatedVisibility(
-            visible = !showWelcome,
-            enter = fadeIn(animationSpec = tween(400)) + slideInHorizontally { it / 4 },
-            exit = fadeOut(animationSpec = tween(200))
-        ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -1102,10 +1060,10 @@ fun OnboardingStepNameLanguage(
                             shape = RoundedCornerShape(12.dp)
                         )
                         .clickable { onDialectChange(item.id) }
-                        .padding(14.dp)
+                        .padding(10.dp),
+                    contentAlignment = Alignment.Center
                 ) {
                     Column(
-                        modifier = Modifier.align(Alignment.Center),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
@@ -1123,23 +1081,6 @@ fun OnboardingStepNameLanguage(
                             color = if (isSelected) Color.White else Color(0xFFE1E3E1).copy(alpha = 0.7f),
                             textAlign = TextAlign.Center
                         )
-                    }
-                    if (isSelected) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .size(20.dp)
-                                .clip(CircleShape)
-                                .background(item.accent),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(14.dp)
-                            )
-                        }
                     }
                 }
             }
@@ -1321,34 +1262,16 @@ fun OnboardingStepCrops(
                             shape = RoundedCornerShape(12.dp)
                         )
                         .clickable { onCropSelect(item.id) }
-                        .padding(16.dp)
+                        .padding(12.dp),
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = item.label,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        fontSize = 16.sp,
-                        lineHeight = 22.sp,
-                        color = if (isSelected) Color.White else Color(0xFFE1E3E1).copy(alpha = 0.85f),
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.align(Alignment.Center)
+                        fontSize = 13.sp,
+                        color = if (isSelected) Color.White else Color(0xFFE1E3E1).copy(alpha = 0.8f),
+                        textAlign = TextAlign.Center
                     )
-                    if (isSelected) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .size(20.dp)
-                                .clip(CircleShape)
-                                .background(item.color),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(14.dp)
-                            )
-                        }
-                    }
                 }
             }
         }
@@ -1374,232 +1297,3 @@ fun OnboardingStepCrops(
 data class DialectItem(val id: String, val label: String, val icon: ImageVector, val accent: Color)
 data class RegionCardItem(val id: String, val labelUrdu: String, val detailsUrdu: String, val icon: ImageVector, val color: Color)
 data class CropItem(val id: String, val label: String, val color: Color)
-
-@Composable
-fun OnboardingStepWelcome(
-    onStart: () -> Unit,
-    onExistingAccount: () -> Unit,
-    onVoicePlay: () -> Unit
-) {
-    val heroPulse by rememberInfiniteTransition(label = "heroPulse").animateFloat(
-        initialValue = 0.95f,
-        targetValue = 1.05f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1800, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "heroPulseScale"
-    )
-
-    // Auto-play the voice greeting once when the welcome appears
-    LaunchedEffect(Unit) {
-        delay(900)
-        onVoicePlay()
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(18.dp)
-    ) {
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // App brand row
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF10B981).copy(alpha = 0.2f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Agriculture,
-                    contentDescription = null,
-                    tint = Color(0xFF10B981),
-                    modifier = Modifier.size(26.dp)
-                )
-            }
-            Text(
-                text = UrduDictionary.APP_NAME,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFFD1E8D1)
-            )
-        }
-
-        // Hero illustration in a soft glowing ring
-        Box(
-            modifier = Modifier
-                .scale(heroPulse)
-                .size(190.dp)
-                .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(
-                            Color(0xFF10B981).copy(alpha = 0.28f),
-                            Color(0xFF0A0C0B).copy(alpha = 0f)
-                        )
-                    )
-                )
-                .border(2.dp, Color(0xFF10B981).copy(alpha = 0.4f), CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.kisaan_companion_icon),
-                contentDescription = "Kisaan Dost mascot",
-                modifier = Modifier
-                    .size(160.dp)
-                    .clip(CircleShape),
-                contentScale = ContentScale.Crop
-            )
-        }
-
-        Text(
-            text = UrduDictionary.WELCOME_HERO_TITLE,
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
-            textAlign = TextAlign.Center
-        )
-
-        Text(
-            text = UrduDictionary.WELCOME_HERO_TAGLINE,
-            fontSize = 15.sp,
-            lineHeight = 22.sp,
-            color = Color(0xFFE1E3E1).copy(alpha = 0.85f),
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 4.dp)
-        )
-
-        // Voice-first invitation: tappable hint that the app talks to you
-        Row(
-            modifier = Modifier
-                .clip(RoundedCornerShape(28.dp))
-                .background(Color(0xFF10B981).copy(alpha = 0.12f))
-                .border(1.dp, Color(0xFF10B981).copy(alpha = 0.35f), RoundedCornerShape(28.dp))
-                .clickable(onClick = onVoicePlay)
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.VolumeUp,
-                contentDescription = null,
-                tint = Color(0xFF10B981),
-                modifier = Modifier.size(20.dp)
-            )
-            Text(
-                text = UrduDictionary.WELCOME_TAP_TO_HEAR,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFFD1E8D1)
-            )
-        }
-
-        // Four feature rows — large, clear, scannable
-        val features = listOf(
-            Triple(Icons.Default.Mic, UrduDictionary.WELCOME_FEATURE_VOICE to UrduDictionary.WELCOME_FEATURE_VOICE_EN, Color(0xFF10B981)),
-            Triple(Icons.Default.Spa, UrduDictionary.WELCOME_FEATURE_CROP to UrduDictionary.WELCOME_FEATURE_CROP_EN, Color(0xFFF5B041)),
-            Triple(Icons.Default.Pets, UrduDictionary.WELCOME_FEATURE_VET to UrduDictionary.WELCOME_FEATURE_VET_EN, Color(0xFFEF4444)),
-            Triple(Icons.Default.WbSunny, UrduDictionary.WELCOME_FEATURE_WEATHER to UrduDictionary.WELCOME_FEATURE_WEATHER_EN, Color(0xFF3B82F6))
-        )
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            features.forEach { (icon, labels, color) ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0xFF131A15))
-                        .border(1.dp, Color(0xFF2A3329), RoundedCornerShape(14.dp))
-                        .padding(horizontal = 14.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(42.dp)
-                            .clip(CircleShape)
-                            .background(color.copy(alpha = 0.18f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            tint = color,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = labels.first,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Text(
-                            text = labels.second,
-                            fontSize = 12.sp,
-                            color = Color(0xFFE1E3E1).copy(alpha = 0.6f)
-                        )
-                    }
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = null,
-                        tint = color.copy(alpha = 0.65f),
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        // Big, unmistakable Get Started CTA
-        Button(
-            onClick = onStart,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF10B981),
-                contentColor = Color.White
-            ),
-            shape = RoundedCornerShape(16.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(60.dp)
-        ) {
-            Text(
-                text = UrduDictionary.WELCOME_GET_STARTED,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Icon(imageVector = Icons.Default.ArrowForward, contentDescription = null)
-        }
-
-        // Quick login shortcut for returning farmers
-        TextButton(
-            onClick = onExistingAccount,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                text = UrduDictionary.WELCOME_HAVE_ACCOUNT,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFFD1E8D1).copy(alpha = 0.85f)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-    }
-}

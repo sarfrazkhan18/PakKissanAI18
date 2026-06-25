@@ -1882,10 +1882,7 @@ private fun startVoiceActivity(
     try {
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            // Pin to ur-PK on both extras so the recognizer cannot drift to hi-IN.
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, language.sttPrimary)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, language.sttPrimary)
-            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, language.bcp47Code)
             putExtra(RecognizerIntent.EXTRA_PROMPT, "اب بولیے... (${language.displayName})")
         }
         launcher.launch(intent)
@@ -2027,11 +2024,10 @@ fun CustomVoiceListeningDialog(
 
                     val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                         putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                        // Use sttPrimary (ur-PK for all PK languages) — keeps streaming partials
-                        // in Urdu/Shahmukhi script instead of hi-IN Devanagari/Hindi fallback.
-                        putExtra(RecognizerIntent.EXTRA_LANGUAGE, language.sttPrimary)
-                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, language.sttPrimary)
-                        putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false)
+                        putExtra(RecognizerIntent.EXTRA_LANGUAGE, language.bcp47Code)
+                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, language.bcp47Code)
+                        putExtra(RecognizerIntent.EXTRA_SUPPORTED_LANGUAGES, arrayOf(language.bcp47Code, "ur-PK", "ur", "en-US"))
+                        putExtra("android.speech.extra.EXTRA_ADDITIONAL_LANGUAGES", arrayOf(language.bcp47Code, "ur-PK", "ur", "en-US"))
                         putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
                         putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
                     }
@@ -2715,9 +2711,7 @@ fun FarmersLiveSessionDialog(
                             try {
                                 val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, selectedLanguage.sttPrimary)
-                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, selectedLanguage.sttPrimary)
-                                    putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false)
+                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, selectedLanguage.bcp47Code)
                                 }
                                 sttLauncher.launch(intent)
                             } catch (e: Exception) {

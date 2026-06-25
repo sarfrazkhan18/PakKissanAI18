@@ -55,8 +55,7 @@ data class Candidate(
 )
 
 interface GeminiApiService {
-    // Stable Gemini 2.0 Flash — `gemini-3.5-flash` does not exist and was causing 404s on every reply.
-    @POST("v1beta/models/gemini-2.0-flash:generateContent")
+    @POST("v1beta/models/gemini-3.5-flash:generateContent")
     suspend fun generateContent(
         @Query("key") apiKey: String,
         @Body request: GenerateContentRequest
