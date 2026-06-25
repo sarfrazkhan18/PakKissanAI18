@@ -61,9 +61,10 @@ class GeminiLiveService {
         disconnect()
         _connectionState.value = LiveConnectionState.Connecting
 
-        // Using standard Google generativelanguage websocket live toolkit endpoint
-        // Using v1alpha.LiveConnect as standard for Multimodal Live/Bidi API
-        val url = "wss://generativelanguage.googleapis.com/ws/google.ai.generativetoolkit.v1alpha.Pipelines?key=$apiKey"
+        // Real Gemini Live (BidiGenerateContent) websocket endpoint.
+        // The previous URL pointed at a non-existent `generativetoolkit.v1alpha.Pipelines` service,
+        // which is why the live mic never produced answers.
+        val url = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=$apiKey"
         Log.d(tag, "Connecting to: $url")
 
         val request = Request.Builder()
@@ -119,8 +120,9 @@ class GeminiLiveService {
 
             val setupJson = JSONObject().apply {
                 put("setup", JSONObject().apply {
-                    // Using modern preview model supported for Real-time audio & video tasks
-                    put("model", "models/gemini-2.5-flash")
+                    // Live-API-capable model. `gemini-2.5-flash` is not a Live model and the previous
+                    // setup never completed for that reason.
+                    put("model", "models/gemini-2.0-flash-exp")
                     put("generationConfig", JSONObject().apply {
                         // Requesting audio as primary live output modality
                         val modalities = JSONArray().apply {
