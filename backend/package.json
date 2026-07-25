@@ -1,0 +1,13 @@
+{
+  "name": "kisaan-dost-proxy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Minimal Gemini API proxy that keeps the API key off the Android device (Phase 0.1).",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

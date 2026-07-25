@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.BuildConfig
 import com.example.data.*
 import com.example.network.*
+import com.example.utils.PasswordHasher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -91,7 +92,7 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
                 region = region,
                 primaryCrop = primaryCrop,
                 selectedDialect = dialect,
-                passwordHash = passwordRaw, // Store user's local passcode securely
+                passwordHash = PasswordHasher.hash(passwordRaw), // Salted PBKDF2, never plaintext
                 onboardingCompleted = true,
                 isActive = true // Mark this register session active on device
             )
@@ -108,9 +109,15 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
     // Local authentications to scale to millions of farmers on shared center/personal devices
     suspend fun attemptLocalLogin(phone: String, passwordRaw: String): Boolean {
         val profile = repository.getProfileByPhone(phone)
-        if (profile != null && profile.passwordHash == passwordRaw) {
+        if (profile != null && PasswordHasher.verify(passwordRaw, profile.passwordHash)) {
             repository.deactivateAllProfiles()
-            val activated = profile.copy(isActive = true)
+            // Upgrade any legacy plaintext passcode to a salted hash on first successful login.
+            val upgradedHash = if (PasswordHasher.isLegacyPlaintext(profile.passwordHash)) {
+                PasswordHasher.hash(passwordRaw)
+            } else {
+                profile.passwordHash
+            }
+            val activated = profile.copy(isActive = true, passwordHash = upgradedHash)
             repository.saveProfile(activated)
             
             val dialect = activated.selectedDialect
@@ -240,6 +247,13 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
         val sessionId = _currentSessionId.value ?: return
 
         viewModelScope.launch {
+            // Capture the prior conversation BEFORE inserting this turn.
+            // currentMessages is a Room-backed Flow that updates asynchronously, so reading
+            // it after the insert races: the new user message may or may not be present yet.
+            // Snapshotting here guarantees history excludes the current prompt, which
+            // executeGeminiQuery appends exactly once (fixes the duplicate-turn bug).
+            val chatHistory = currentMessages.value.takeLast(8) // cap history for token usage
+
             // Save User Message
             val userMsg = ChatMessage(
                 sessionId = sessionId,
@@ -252,9 +266,6 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
             _uiState.value = FarmersUiState.Loading
 
             try {
-                // Fetch context from previous turns in the session to preserve memory
-                val chatHistory = currentMessages.value.takeLast(10) // Limit to last 10 messages for token usage
-
                 val responseText = executeGeminiQuery(userText, chatHistory)
                 
                 // Save AI Generated Response
@@ -335,6 +346,24 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
                 _translationLoadingIds.value = _translationLoadingIds.value - messageId
             }
         }
+    }
+
+    // Decide whether a query needs live Google Search grounding. Only time-sensitive
+    // questions (market/mandi rates, weather, government subsidies) do. Everything else is
+    // served from the model + the local verified knowledge base without a paid search.
+    // Matches English, Roman-Urdu and Urdu-script phrasings farmers actually use.
+    private fun needsLiveSearch(prompt: String): Boolean {
+        val p = prompt.lowercase()
+        val liveKeywords = listOf(
+            // English / Roman-Urdu
+            "rate", "rates", "price", "prices", "mandi", "bhao", "bhav", "bhaao",
+            "today", "aaj", "kal", "weather", "mausam", "forecast", "rain", "barish",
+            "subsidy", "subsidies", "kisan card", "kissan card", "market", "bazar",
+            // Urdu script
+            "ریٹ", "بھاؤ", "قیمت", "قیمتیں", "منڈی", "موسم", "بارش", "آج",
+            "سبسڈی", "کسان کارڈ", "نرخ", "بازار", "پیشگوئی"
+        )
+        return liveKeywords.any { p.contains(it) }
     }
 
     private suspend fun executeGeminiQuery(userPrompt: String, history: List<ChatMessage>): String = withContext(Dispatchers.IO) {
@@ -441,6 +470,12 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
             )
         )
 
+        // Only pay for Google Search grounding when the question actually needs live data
+        // (mandi rates, weather, subsidies). Grounding is billed per query (~$14/1000), so
+        // enabling it on every turn — including questions already answered by the local
+        // knowledge base — wastes 70-80% of the search spend. See needsLiveSearch().
+        val liveTools = if (needsLiveSearch(userPrompt)) listOf(Tool(googleSearch = emptyMap())) else null
+
         val request = GenerateContentRequest(
             contents = contentList,
             generationConfig = GenerationConfig(
@@ -450,7 +485,7 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
             systemInstruction = Content(
                 parts = listOf(Part(text = systemDirective))
             ),
-            tools = listOf(Tool(googleSearch = emptyMap()))
+            tools = liveTools
         )
 
         val response = RetrofitClient.service.generateContent(apiKey, request)

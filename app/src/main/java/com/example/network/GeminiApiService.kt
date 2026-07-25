@@ -63,7 +63,10 @@ interface GeminiApiService {
 }
 
 object RetrofitClient {
-    private const val BASE_URL = "https://generativelanguage.googleapis.com/"
+    // Configurable so the app can be pointed at a backend proxy that holds the API key
+    // server-side (Phase 0.1) instead of shipping the key inside the APK. Defaults to
+    // Google's endpoint. See app/build.gradle.kts -> GEMINI_API_BASE_URL and backend/.
+    private val BASE_URL = com.example.BuildConfig.GEMINI_API_BASE_URL
 
     private val okHttpClient = OkHttpClient.Builder()
         .connectTimeout(60, TimeUnit.SECONDS)

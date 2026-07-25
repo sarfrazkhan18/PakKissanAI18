@@ -17,7 +17,7 @@ object UrduDictionary {
     const val PHONE_PLACEHOLDER = "03XX XXXXXXX"
     const val PASSWORD_LABEL = "نیا پاسورڈ منتخب کریں"
     const val PASSWORD_PLACEHOLDER = "6 یا زیادہ ہندسے"
-    const val GET_OTP_BUTTON = "رجسٹر کریں اور تصدیق کرائیں"
+    const val GET_OTP_BUTTON = "رجسٹر کریں اور آگے بڑھیں"
     const val SMS_CODE_SENT = "آپ کو SMS کوڈ بھیجا گیا ہے"
     const val SMS_INSTRUCTION = "مہربانی فرما کر موصول ہونے والا 4 ہندسوں والا کوڈ یا '1234' درج کریں"
     const val CODE_LABEL = "4 ہندسوں کا پن کوڈ درج کریں"
@@ -47,7 +47,7 @@ object UrduDictionary {
     
     // Voice / Screen Reader Helpers
     const val VOICE_INTRO_GREETING = "پیارے کسان بھائی، کِسان دوست ایپ میں خوش آمدید! اپنا رجسٹریشن اور اکاؤنٹ مکمل کریں۔"
-    const val VOICE_STEP_AUTH_HELP = "پیارے کسان بھائی، یہاں اپنا موبائل نمبر اور نیا پاسورڈ درج کیجیے اور کوڈ حاصل کریں۔"
+    const val VOICE_STEP_AUTH_HELP = "پیارے کسان بھائی، یہاں اپنا موبائل نمبر اور نیا پاسورڈ درج کیجیے اور آگے بڑھیں۔ آپ کا اکاؤنٹ اسی فون پر محفوظ رہے گا۔"
     const val VOICE_OTP_SENT = "ہم نے آپ کو چار ہندسوں کا کوڈ بھیج دیا ہے۔"
     const val VOICE_OTP_VERIFIED = "مبارک ہو! آپ کا فون نمبر تصدیق ہو گیا ہے۔"
     const val VOICE_STEP_NAME_HELP = "مہربانی کر کے اپنا نام لکھیے، یا آواز والے بٹن کو دبا کر اپنا نام بولیے۔ اسکے بعد اپنی زبان کا انتخاب کریں۔"

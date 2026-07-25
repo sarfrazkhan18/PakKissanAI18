@@ -224,12 +224,33 @@ fun KisaanOnboardingScreen(
                             onPasswordChange = { password = it },
                             isSent = isVerificationSent,
                             onSendOtp = {
-                                isSendingOtp = true
-                                playVoiceGuidance(UrduDictionary.VOICE_OTP_SENT, "Sending verification OTP.")
-                                Toast.makeText(context, "کِسان دوست کوڈ: '1234' بھیج دیا گیا ہے", Toast.LENGTH_LONG).show()
-                                isVerificationSent = true
-                                isSendingOtp = false
-                                verificationCode = "1234" // Pre-fill code to prevent stuckness
+                                // No SMS/OTP is sent — this creates a local, on-device profile.
+                                // The earlier flow faked an OTP ("1234"), which gave a false
+                                // impression of phone verification. We now register honestly and
+                                // just guard against overwriting an existing local account.
+                                scope.launch {
+                                    isSendingOtp = true
+                                    if (viewModel.isPhoneAlreadyRegistered(phoneNumber)) {
+                                        isSendingOtp = false
+                                        playVoiceGuidance(
+                                            "یہ نمبر پہلے سے اس فون پر موجود ہے۔ براہ کرم لاگ ان کریں۔",
+                                            "This number already exists on this phone. Please log in."
+                                        )
+                                        Toast.makeText(
+                                            context,
+                                            "یہ نمبر پہلے سے موجود ہے۔ براہ کرم لاگ ان کریں۔",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                        isLoginMode = true
+                                    } else {
+                                        isSendingOtp = false
+                                        playVoiceGuidance(
+                                            "شکریہ! اب اپنا نام اور زبان منتخب کریں۔",
+                                            "Thank you. Now choose your name and language."
+                                        )
+                                        currentStep = 1
+                                    }
+                                }
                             },
                             code = verificationCode,
                             onCodeChange = { verificationCode = it },
@@ -264,7 +285,7 @@ fun KisaanOnboardingScreen(
                                 } else {
                                     playVoiceGuidance(
                                         UrduDictionary.VOICE_STEP_AUTH_HELP,
-                                        "Please register safety OTP with phone number."
+                                        "Enter your mobile number and a passcode to create your local account."
                                     )
                                 }
                             }

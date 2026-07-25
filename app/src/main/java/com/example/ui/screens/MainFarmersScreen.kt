@@ -288,6 +288,9 @@ fun MainFarmersScreen(
                         onLanguageSelected = { viewModel.setLanguage(it) }
                     )
 
+                    // Live (real-time voice) entry point is shown only when the feature is
+                    // verified and enabled, so a broken endpoint never surfaces as a dead button.
+                    if (com.example.BuildConfig.LIVE_API_ENABLED) {
                     IconButton(
                         onClick = { showLiveSessionDialog = true },
                         modifier = Modifier.testTag("live_translation_button")
@@ -318,6 +321,7 @@ fun MainFarmersScreen(
                             )
                         }
                     }
+                    } // end LIVE_API_ENABLED gate
 
                     Box(
                         modifier = Modifier
