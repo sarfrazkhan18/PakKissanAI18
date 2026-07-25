@@ -85,6 +85,11 @@ fun MainFarmersScreen(
     var lastClickedVoiceMode by remember { mutableStateOf("send") } // "send" or "input"
     var showLiveSessionDialog by remember { mutableStateOf(false) }
 
+    // Transcript confirmation (P1.3): what STT heard, shown for the farmer to confirm
+    // before we spend an API call — cuts wasted spend and wrong answers from misheard speech.
+    var pendingVoiceText by remember { mutableStateOf("") }
+    var showVoiceConfirmDialog by remember { mutableStateOf(false) }
+
     val liveConnectionState by viewModel.liveConnectionState.collectAsStateWithLifecycle()
     val liveReceivedText by viewModel.liveReceivedText.collectAsStateWithLifecycle()
 
@@ -743,14 +748,55 @@ fun MainFarmersScreen(
             language = selectedLanguage,
             onSpeechResult = { text ->
                 if (text.isNotBlank()) {
-                    inputQueryText = text
-                    viewModel.sendMessage(text, determineCategory(text))
-                    inputQueryText = ""
+                    if (isHandsFreeActive) {
+                        // Hands-free keeps its uninterrupted listen→answer→listen loop.
+                        viewModel.sendMessage(text, determineCategory(text))
+                    } else {
+                        // Manual mode: confirm the transcript before sending.
+                        pendingVoiceText = text
+                        showVoiceConfirmDialog = true
+                    }
                 }
                 showCustomVoiceDialog = false
             },
             onDismiss = {
                 showCustomVoiceDialog = false
+            }
+        )
+    }
+
+    if (showVoiceConfirmDialog) {
+        VoiceConfirmDialog(
+            transcript = pendingVoiceText,
+            onConfirm = {
+                val text = pendingVoiceText
+                showVoiceConfirmDialog = false
+                if (text.isNotBlank()) {
+                    viewModel.sendMessage(text, determineCategory(text))
+                }
+                pendingVoiceText = ""
+            },
+            onRetry = {
+                showVoiceConfirmDialog = false
+                pendingVoiceText = ""
+                showCustomVoiceDialog = true // listen again
+            },
+            onEdit = {
+                inputQueryText = pendingVoiceText // let them fix it in the text field
+                showVoiceConfirmDialog = false
+                pendingVoiceText = ""
+            },
+            onReplay = {
+                speakOutLoud(
+                    textToSpeech = textToSpeech,
+                    text = pendingVoiceText,
+                    languageCode = selectedLanguage.audioLocale,
+                    onDone = {}
+                )
+            },
+            onDismiss = {
+                showVoiceConfirmDialog = false
+                pendingVoiceText = ""
             }
         )
     }
@@ -1126,7 +1172,9 @@ fun ChatMessageBubble(
                     }
 
                     Text(
-                        text = message.text,
+                        // Normalise Eastern digits to Western for consistent, unambiguous
+                        // numbers (rates, doses, dates) — see NumeralUtils (P1.2).
+                        text = com.example.utils.NumeralUtils.toWesternDigits(message.text),
                         fontSize = 15.sp,
                         lineHeight = 22.sp,
                         color = if (isUser) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
@@ -1378,6 +1426,11 @@ fun EmptyStateGuide(
             }
         }
 
+        // Six big one-tap shortcuts to the questions farmers ask most (P1.5).
+        HomeShortcutGrid(onTopicSelected = onTopicSelected)
+
+        Spacer(modifier = Modifier.height(12.dp))
+
         // State-driven hands-free toggler on the empty state guide
         Row(
             modifier = Modifier
@@ -1546,6 +1599,84 @@ fun EmptyStateGuide(
 }
 
 data class GuideItem(val title: String, val prompt: String, val category: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
+
+data class HomeShortcut(
+    val label: String,
+    val prompt: String,
+    val category: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector
+)
+
+// The six most-asked topics, one tap each. Big icon + Urdu label so a non-literate farmer
+// can recognise them by shape/colour (P1.5). Tapping sends the prompt like a spoken question.
+@Composable
+fun HomeShortcutGrid(onTopicSelected: (String, String) -> Unit) {
+    val shortcuts = listOf(
+        HomeShortcut("پانی", "میری فصل کو پانی کب اور کتنی مقدار میں لگانا چاہیے؟", "Weather", Icons.Outlined.WaterDrop),
+        HomeShortcut("کھاد", "میری فصل کے لیے کھاد کا صحیح شیڈول اور مقدار کیا ہے؟", "Crops", Icons.Outlined.Grass),
+        HomeShortcut("کیڑے", "میری فصل پر کیڑوں کے حملے کا سستا اور دیسی علاج بتائیں۔", "Pest", Icons.Outlined.BugReport),
+        HomeShortcut("بیماری", "میری فصل میں بیماری کی علامات اور اس کا تدارک کیا ہے؟", "Pest", Icons.Outlined.Healing),
+        HomeShortcut("منڈی بھاؤ", "آج میری فصل کا منڈی بھاؤ کیا ہے؟", "Weather", Icons.Outlined.TrendingUp),
+        HomeShortcut("موسم", "اگلے چند دن موسم کیسا رہے گا اور کیا سپرے کرنا چاہیے؟", "Weather", Icons.Outlined.WbSunny)
+    )
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        shortcuts.chunked(3).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                row.forEach { sc ->
+                    ShortcutChip(
+                        shortcut = sc,
+                        modifier = Modifier.weight(1f),
+                        onClick = { onTopicSelected(sc.prompt, sc.category) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ShortcutChip(shortcut: HomeShortcut, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Column(
+        modifier = modifier
+            .heightIn(min = 88.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(LocalKisaanColors.current.surface)
+            .border(BorderStroke(1.dp, LocalKisaanColors.current.border), RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 14.dp, horizontal = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(LocalKisaanColors.current.accent.copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = shortcut.icon,
+                contentDescription = shortcut.label,
+                tint = LocalKisaanColors.current.accent,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+        Text(
+            text = shortcut.label,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            color = LocalKisaanColors.current.textPrimary,
+            textAlign = TextAlign.Center,
+            maxLines = 1
+        )
+    }
+}
 
 // Bottom control board with big pulsing voice capturing button
 @Composable
@@ -1911,6 +2042,97 @@ fun SessionDrawerOverlay(
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+// Transcript confirmation shown after voice input in manual mode (P1.3). Big ✅/🔁 so a
+// farmer can confirm the app heard him right — or listen again — before an answer is fetched.
+@Composable
+fun VoiceConfirmDialog(
+    transcript: String,
+    onConfirm: () -> Unit,
+    onRetry: () -> Unit,
+    onEdit: () -> Unit,
+    onReplay: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(24.dp))
+                .background(LocalKisaanColors.current.surface)
+                .border(BorderStroke(1.dp, LocalKisaanColors.current.border), RoundedCornerShape(24.dp))
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text(
+                text = "آپ نے پوچھا:",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = LocalKisaanColors.current.textHeading
+            )
+            Text(
+                text = transcript,
+                fontSize = 18.sp,
+                lineHeight = 28.sp,
+                color = LocalKisaanColors.current.textPrimary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // Listen back + edit row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onReplay,
+                    modifier = Modifier.weight(1f).height(48.dp),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Icon(Icons.Default.VolumeUp, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("سنیں", fontSize = 13.sp)
+                }
+                OutlinedButton(
+                    onClick = onEdit,
+                    modifier = Modifier.weight(1f).height(48.dp),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("درست کریں", fontSize = 13.sp)
+                }
+            }
+
+            // Retry (listen again) + confirm (send)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onRetry,
+                    modifier = Modifier.weight(1f).height(56.dp),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("🔁 دوبارہ", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                }
+                Button(
+                    onClick = onConfirm,
+                    modifier = Modifier.weight(1f).height(56.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = LocalKisaanColors.current.accent)
+                ) {
+                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(22.dp), tint = Color.White)
+                    Spacer(Modifier.width(6.dp))
+                    Text("بھیجیں", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 }
             }
         }
