@@ -220,11 +220,17 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
     val selectedCategory: StateFlow<String> = _selectedCategory.asStateFlow()
 
     init {
-        // Seed agricultural knowledge database if empty
+        // Seed agricultural knowledge. The compiled base set seeds once; the expandable JSON
+        // pack (assets/agri_knowledge.json) is upserted every launch so content updates land
+        // for existing installs too (P2.3).
         viewModelScope.launch {
             try {
                 if (repository.getKnowledgeCount() == 0) {
                     repository.insertKnowledge(AgriKnowledgeSeeder.getInitialKnowledge())
+                }
+                val jsonPack = AgriKnowledgeLoader.loadFromAssets(getApplication())
+                if (jsonPack.isNotEmpty()) {
+                    repository.insertKnowledge(jsonPack)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
