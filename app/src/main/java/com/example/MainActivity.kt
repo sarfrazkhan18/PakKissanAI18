@@ -23,8 +23,9 @@ class MainActivity : ComponentActivity() {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
     setContent {
-      MyApplicationTheme {
-        val viewModel: FarmersViewModel = viewModel()
+      val viewModel: FarmersViewModel = viewModel()
+      val darkMode by viewModel.darkMode.collectAsStateWithLifecycle()
+      MyApplicationTheme(darkTheme = darkMode) {
         val textScale by viewModel.textScale.collectAsStateWithLifecycle()
         val density = LocalDensity.current
         // Scale every sp in the app by the user's chosen text size (P1.8).

@@ -33,6 +33,17 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
         prefs.edit().putFloat("text_scale", next).apply()
     }
 
+    // Theme mode. Defaults to LIGHT (false) because farmers mostly use the app outdoors in
+    // bright sunlight where a dark UI on a cheap LCD is unreadable. Manual ☀️/🌙 toggle.
+    private val _darkMode = MutableStateFlow(prefs.getBoolean("dark_mode", false))
+    val darkMode: StateFlow<Boolean> = _darkMode.asStateFlow()
+
+    fun toggleDarkMode() {
+        val next = !_darkMode.value
+        _darkMode.value = next
+        prefs.edit().putBoolean("dark_mode", next).apply()
+    }
+
     // WebSocket Gemini Live Service Properties
     private val liveService = GeminiLiveService()
     val liveConnectionState: StateFlow<LiveConnectionState> = liveService.connectionState

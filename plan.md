@@ -242,7 +242,7 @@ Multi-profile exists (`user_profiles`, `isActive` flag) and is the right call. F
 ### Phase 1 — Make it usable in a field (2–3 weeks)
 *Goal: an illiterate farmer in direct sunlight can get one correct answer unaided.*
 
-- [ ] **P1.1** Light theme, default-on, AAA contrast, manual toggle (D6) — *deferred to its own turn: 332 hardcoded `Color(0x…)` literals across the screens must be migrated to theme tokens first, too large/risky to do without a compiler*
+- [x] **P1.1** Light theme, default-on, manual ☀️/🌙 toggle (D6 ✓). Added a semantic `KisaanColors` token set (light + dark) exposed via `LocalKisaanColors`; built a real `LightColorScheme`; migrated ~294 of the 332 hardcoded `Color(0x…)` literals to tokens (only bright semantic colors — red/blue/white — remain literal). Default is light for sunlight readability; `darkMode` preference persisted, toggled from the top bar
 - [~] **P1.2** Line-heights raised for Urdu; numeral-normalization utility added (`utils/NumeralUtils.kt`); single font-swap point added (`KisaanFontFamily` in `Type.kt`). **Remaining:** bundle/wire the Nastaliq font binary (GitHub raw was proxy-blocked; needs build verification) and apply numeral normalization on rate/number displays
 - [ ] **P1.3** Rework the voice loop: hold-to-talk, transcript confirmation, noise retry, barge-in, replay — *own turn (large)*
 - [x] **P1.4** Picker cut to selectable tiers (Urdu, English, Punjabi, Seraiki) with honest voice notes ("پنجابی متن، اردو آواز"); Sindhi/Pashto/Balochi hidden from the voice picker but kept for text translation (D7 ✓)
