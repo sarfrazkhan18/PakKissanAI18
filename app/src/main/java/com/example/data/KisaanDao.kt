@@ -47,6 +47,9 @@ interface KisaanDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMessage(message: ChatMessage)
 
+    @Query("UPDATE chat_messages SET feedback = :value WHERE id = :messageId")
+    suspend fun setMessageFeedback(messageId: String, value: Int)
+
     @Query("DELETE FROM chat_messages WHERE sessionId = :sessionId")
     suspend fun deleteMessagesForSession(sessionId: String)
 

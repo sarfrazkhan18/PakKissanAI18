@@ -484,7 +484,8 @@ fun MainFarmersScreen(
                                         languageCode = selectedLanguage.audioLocale,
                                         onDone = {}
                                     )
-                                }
+                                },
+                                onFeedback = { value -> viewModel.setMessageFeedback(msg.id, value) }
                             )
                         }
                     }
@@ -592,18 +593,9 @@ fun MainFarmersScreen(
                         }
                     )
 
-                    NavTabItem(
-                        icon = Icons.Default.Assessment,
-                        labelUrdu = "منڈی ریٹ",
-                        isActive = activeNav == "Markets",
-                        onClick = {
-                            showMarketsDialog = true
-                            showSessionDrawer = false
-                            showSetupDialog = false
-                            showHelpGuideDialog = false
-                            showMyFarmScreen = false
-                        }
-                    )
+                    // Mandi-rate tab hidden for launch: its rates are hardcoded placeholders,
+                    // and showing fabricated prices as real is a trust/liability risk. Re-enable
+                    // once real, sourced rates land (plan P3.1).
 
                     NavTabItem(
                         icon = Icons.Default.Agriculture,
@@ -970,7 +962,8 @@ fun ChatMessageBubble(
     translationsMap: Map<String, String>,
     loadingIds: Set<String>,
     onTranslateSelected: (LanguageOption) -> Unit,
-    speakTranslation: (String) -> Unit
+    speakTranslation: (String) -> Unit,
+    onFeedback: (Int) -> Unit = {}
 ) {
     val speechDirection = if (isUser) TextDirection.Rtl else TextDirection.Ltr
     val themeCardColor = if (isUser) {
@@ -1115,17 +1108,22 @@ fun ChatMessageBubble(
                                     
                                     Spacer(modifier = Modifier.weight(1f))
                                     
+                                    // Honest trust signal (P2.5): green "verified" only when the
+                                    // answer was grounded in the local verified knowledge base;
+                                    // otherwise blue "AI advice" so the farmer knows to double-check.
+                                    val verified = message.usedVerifiedSource
+                                    val badgeColor = if (verified) LocalKisaanColors.current.accent else Color(0xFF3B82F6)
                                     Box(
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(4.dp))
-                                            .background(LocalKisaanColors.current.accent.copy(alpha = 0.15f))
+                                            .background(badgeColor.copy(alpha = 0.15f))
                                             .padding(horizontal = 5.dp, vertical = 2.dp)
                                     ) {
                                         Text(
-                                            text = "تصدیق شدہ",
+                                            text = if (verified) "🟢 تصدیق شدہ" else "🔵 AI مشورہ",
                                             fontSize = 8.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = LocalKisaanColors.current.accent
+                                            color = badgeColor
                                         )
                                     }
                                 }
@@ -1199,6 +1197,88 @@ fun ChatMessageBubble(
                             textDirection = TextDirection.ContentOrLtr
                         )
                     )
+
+                    // --- Safety layer (P2.5): only on advisory (model) answers ---
+                    if (!isUser) {
+                        val safetyCtx = LocalContext.current
+
+                        // Pesticide / chemical guardrail — a wrong dose can destroy a crop, so any
+                        // answer touching sprays or doses carries a highlighted "verify first" caution.
+                        val mentionsChemical = remember(message.text) {
+                            val t = message.text.lowercase()
+                            listOf(
+                                "زہر", "سپرے", "کیڑے مار", "دوا", "مقدار", "spray", "pesticide",
+                                "insecticide", "fungicide", "herbicide", "dose", "ملی لیٹر", "chemical"
+                            ).any { t.contains(it) }
+                        }
+                        if (mentionsChemical) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 8.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(Color(0xFFF5B041).copy(alpha = 0.15f))
+                                    .border(BorderStroke(1.dp, Color(0xFFF5B041).copy(alpha = 0.5f)), RoundedCornerShape(10.dp))
+                                    .padding(10.dp),
+                                verticalAlignment = Alignment.Top,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFF5B041), modifier = Modifier.size(16.dp))
+                                Text(
+                                    text = "⚠️ سپرے یا زہر استعمال کرنے سے پہلے مقامی زرعی افسر یا ڈیلر سے تصدیق ضرور کریں، اور مقدار احتیاط سے ناپیں۔",
+                                    fontSize = 11.sp,
+                                    lineHeight = 16.sp,
+                                    color = LocalKisaanColors.current.textPrimary
+                                )
+                            }
+                        }
+
+                        // Escalate to a human + rate the answer.
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(LocalKisaanColors.current.accent.copy(alpha = 0.12f))
+                                    .clickable {
+                                        // Punjab Agriculture Helpline (toll-free, 8am-8pm).
+                                        runCatching {
+                                            safetyCtx.startActivity(
+                                                Intent(Intent.ACTION_DIAL, android.net.Uri.parse("tel:080015000"))
+                                            )
+                                        }
+                                    }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(Icons.Default.Call, contentDescription = null, tint = LocalKisaanColors.current.accent, modifier = Modifier.size(14.dp))
+                                Text("ماہر سے پوچھیں", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = LocalKisaanColors.current.accent)
+                            }
+
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                IconButton(onClick = { onFeedback(if (message.feedback == 1) 0 else 1) }, modifier = Modifier.size(30.dp)) {
+                                    Icon(
+                                        imageVector = Icons.Default.ThumbUp,
+                                        contentDescription = "مفید",
+                                        tint = if (message.feedback == 1) LocalKisaanColors.current.accent else LocalKisaanColors.current.textPrimary.copy(alpha = 0.4f),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                                IconButton(onClick = { onFeedback(if (message.feedback == -1) 0 else -1) }, modifier = Modifier.size(30.dp)) {
+                                    Icon(
+                                        imageVector = Icons.Default.ThumbDown,
+                                        contentDescription = "غیر مفید",
+                                        tint = if (message.feedback == -1) Color(0xFFEF4444) else LocalKisaanColors.current.textPrimary.copy(alpha = 0.4f),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(4.dp))
 

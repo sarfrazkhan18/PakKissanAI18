@@ -42,6 +42,10 @@ class KisaanRepository(private val dao: KisaanDao) {
         dao.insertMessage(message)
     }
 
+    suspend fun setMessageFeedback(messageId: String, value: Int) {
+        dao.setMessageFeedback(messageId, value)
+    }
+
     val userProfile: Flow<UserProfile?> = dao.getUserProfile()
 
     suspend fun getProfileByPhone(phoneNumber: String): UserProfile? =
