@@ -36,12 +36,6 @@ fun EmptyStateGuide(
     isHandsFreeActive: Boolean,
     onHandsFreeToggle: (Boolean) -> Unit
 ) {
-    val guides = listOf(
-        GuideItem("فصلوں کی دیکھ بھال", "گندم کی اچھی پیداوار حاصل کرنے کے لیے کھاد کا صحیح شیڈول کیا ہے؟", "Crops", Icons.Outlined.Spa),
-        GuideItem("بیماریاں اور کیڑے", "کپاس کے پتوں پر سفید مکھی کے حملے کا دیسی اور سستا علاج بتائیں۔", "Pest", Icons.Outlined.BugReport),
-        GuideItem("موسم اور پانی", "کیا اس مہینے بارانِ رحمت سے نہری پانی کے استعمال میں کمی کرنی چاہیے؟", "Weather", Icons.Outlined.WbSunny),
-        GuideItem("مال مویشی", "بھینس کا دودھ بڑھانے کے لیے کونسا دیسی ونڈا بہترین اور سستا ہے؟", "Livestock", Icons.Outlined.Pets)
-    )
 
     Column(
         modifier = Modifier
@@ -186,121 +180,17 @@ fun EmptyStateGuide(
             )
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
-        // Section with "Latest Advice" from Design Guidelines:
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp)
-                .border(BorderStroke(1.dp, LocalKisaanColors.current.border), RoundedCornerShape(24.dp)),
-            colors = CardDefaults.cardColors(containerColor = LocalKisaanColors.current.surface),
-            shape = RoundedCornerShape(24.dp)
-        ) {
-            Column(modifier = Modifier.padding(18.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "LATEST ADVICE",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = LocalKisaanColors.current.textHeading.copy(alpha = 0.6f)
-                    )
-                    Text(
-                        text = "2 mins ago",
-                        fontSize = 9.sp,
-                        color = LocalKisaanColors.current.textHeading.copy(alpha = 0.4f)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Text(
-                    text = "گندم کی کٹائی کے لیے موسم موزوں ہے۔ اگلے تین دن تک بارش کا کوئی امکان نہیں ہے۔",
-                    fontSize = 13.sp,
-                    lineHeight = 18.sp,
-                    color = LocalKisaanColors.current.textPrimary,
-                    textAlign = TextAlign.Right,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 10.dp)
-                        .clickable {
-                            onTopicSelected("گندم کی اچھی پیداوار حاصل کرنے کے لیے کھاد کا صحیح شیڈول کیا ہے؟", "Crops")
-                        },
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Details",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = LocalKisaanColors.current.textHeading
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Icon(
-                        imageVector = Icons.Default.ArrowForward,
-                        contentDescription = null,
-                        tint = LocalKisaanColors.current.textHeading,
-                        modifier = Modifier.size(12.dp)
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Grid of interactive cards
-        guides.forEach { guide ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
-                    .clickable { onTopicSelected(guide.prompt, guide.category) },
-                colors = CardDefaults.cardColors(containerColor = LocalKisaanColors.current.surface),
-                border = BorderStroke(0.5.dp, LocalKisaanColors.current.border),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = guide.icon,
-                        contentDescription = null,
-                        tint = LocalKisaanColors.current.textHeading,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = guide.title,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            color = LocalKisaanColors.current.textPrimary
-                        )
-                        Text(
-                            text = guide.prompt,
-                            fontSize = 11.sp,
-                            maxLines = 1,
-                            color = LocalKisaanColors.current.textPrimary.copy(alpha = 0.6f)
-                        )
-                    }
-                    Icon(
-                        imageVector = Icons.Default.ArrowForward,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = LocalKisaanColors.current.textHeading.copy(alpha = 0.5f)
-                    )
-                }
-            }
-        }
+        // Honest disclaimer (P2.5): the app is an assistant, not a final authority.
+        Text(
+            text = "کِسان دوست ایک معاون ہے۔ اہم فیصلوں اور سپرے سے پہلے مقامی زرعی ماہر سے تصدیق ضرور کریں۔",
+            fontSize = 11.sp,
+            lineHeight = 16.sp,
+            textAlign = TextAlign.Center,
+            color = LocalKisaanColors.current.textPrimary.copy(alpha = 0.6f),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)
+        )
     }
 }
 

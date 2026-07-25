@@ -321,7 +321,7 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
                 // Offline-first: when there's no connection, answer from the local verified
                 // knowledge base instead of failing. Farmers in the field lose signal
                 // constantly — a saved-guidance answer beats a blank error screen.
-                val responseText = if (isOnline()) {
+                val result = if (isOnline()) {
                     executeGeminiQuery(userText, chatHistory)
                 } else {
                     buildOfflineAnswer(userText)
@@ -330,12 +330,13 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
                 val botMsg = ChatMessage(
                     sessionId = sessionId,
                     role = "model",
-                    text = responseText,
-                    category = category
+                    text = result.text,
+                    category = category,
+                    usedVerifiedSource = result.usedVerified
                 )
                 repository.insertMessage(botMsg)
 
-                _uiState.value = FarmersUiState.Success(responseText)
+                _uiState.value = FarmersUiState.Success(result.text)
             } catch (e: Exception) {
                 // A network call that started online but failed mid-flight still falls back
                 // to local guidance rather than a dead error.
@@ -343,11 +344,12 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
                 val botMsg = ChatMessage(
                     sessionId = sessionId,
                     role = "model",
-                    text = fallback,
-                    category = category
+                    text = fallback.text,
+                    category = category,
+                    usedVerifiedSource = fallback.usedVerified
                 )
                 repository.insertMessage(botMsg)
-                _uiState.value = FarmersUiState.Success(fallback)
+                _uiState.value = FarmersUiState.Success(fallback.text)
             }
         }
     }
@@ -385,17 +387,18 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
     }
 
     /** Build an answer purely from local verified data, clearly marked as offline. */
-    private suspend fun buildOfflineAnswer(userPrompt: String): String {
+    private suspend fun buildOfflineAnswer(userPrompt: String): QueryResult {
         val isEnglish = _selectedLanguage.value == LanguageOption.ENGLISH
         val matches = searchLocalKnowledge(userPrompt)
         if (matches.isEmpty()) {
-            return if (isEnglish) {
+            val msg = if (isEnglish) {
                 "📴 You are offline. I couldn't find this in the saved guide. " +
                     "Please reconnect to the internet and ask again."
             } else {
                 "📴 انٹرنیٹ دستیاب نہیں ہے۔ یہ سوال محفوظ شدہ رہنمائی میں نہیں ملا۔ " +
                     "براہ کرم انٹرنیٹ آنے پر دوبارہ پوچھیں۔"
             }
+            return QueryResult(msg, usedVerified = false)
         }
         val header = if (isEnglish) {
             "📴 No internet — showing saved verified guidance:\n\n"
@@ -407,7 +410,14 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
             val details = if (isEnglish) m.detailsEn else m.detailsUr
             "🌾 $title\n$details"
         }.replace("*", "")
-        return header + body
+        return QueryResult(header + body, usedVerified = true)
+    }
+
+    /** Record the farmer's 👍/👎 on an answer (quality signal + future training set). */
+    fun setMessageFeedback(messageId: String, value: Int) {
+        viewModelScope.launch {
+            repository.setMessageFeedback(messageId, value)
+        }
     }
 
     // Translation Cache Map to display translated versions on the fly
@@ -492,10 +502,10 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
         return liveKeywords.any { p.contains(it) }
     }
 
-    private suspend fun executeGeminiQuery(userPrompt: String, history: List<ChatMessage>): String = withContext(Dispatchers.IO) {
+    private suspend fun executeGeminiQuery(userPrompt: String, history: List<ChatMessage>): QueryResult = withContext(Dispatchers.IO) {
         val apiKey = BuildConfig.GEMINI_API_KEY
         if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
-            return@withContext "معذرت، AI سروس کی چابی (Gemini API Key) غائب ہے۔ براہ کرم AI Studio کے Secrets پینل میں اپنی چابی درج کریں۔"
+            return@withContext QueryResult("معذرت، AI سروس کی چابی (Gemini API Key) غائب ہے۔ براہ کرم AI Studio کے Secrets پینل میں اپنی چابی درج کریں۔", usedVerified = false)
         }
 
         // Construct Content parts
@@ -627,8 +637,12 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
         val response = RetrofitClient.service.generateContent(apiKey, request)
         val text = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
         val cleanText = text?.replace("*", "") ?: "معذرت، کوئی جواب موصول نہیں ہوا۔"
-        cleanText
+        // Verified when the answer was grounded in the local knowledge base.
+        QueryResult(cleanText, usedVerified = matches.isNotEmpty())
     }
+
+    /** Result of an advisory query: the answer text and whether it was grounded in verified data. */
+    private data class QueryResult(val text: String, val usedVerified: Boolean)
 
     override fun onCleared() {
         super.onCleared()

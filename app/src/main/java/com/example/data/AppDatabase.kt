@@ -11,7 +11,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 // JSON snapshots are what real Room Migration objects are written and tested against — see
 // build.gradle.kts (room.schemaLocation). Add a Migration to MIGRATIONS below on every future
 // version bump so a farmer's profile and chat history survive app updates.
-@Database(entities = [ChatSession::class, ChatMessage::class, UserProfile::class, AgriKnowledge::class], version = 5, exportSchema = true)
+@Database(entities = [ChatSession::class, ChatMessage::class, UserProfile::class, AgriKnowledge::class], version = 6, exportSchema = true)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun kisaanDao(): KisaanDao
 
@@ -32,10 +32,18 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // v5 -> v6: safety-layer columns on chat_messages (P2.5). Additive, non-destructive.
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE chat_messages ADD COLUMN usedVerifiedSource INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE chat_messages ADD COLUMN feedback INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         // Register every schema migration here as the database evolves. Never replace this with
         // destructive migration for released versions: that wipes the farmer's on-device
         // profile and full conversation history, which has no backup.
-        private val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_4_5)
+        private val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_4_5, MIGRATION_5_6)
 
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {

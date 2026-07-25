@@ -262,7 +262,11 @@ Multi-profile exists (`user_profiles`, `isActive` flag) and is the right call. F
 - [x] **P2.2** My Farm profile (F2 ✓) — new `MyFarmScreen` (میرا کھیت, opened from the bottom nav) captures district, crop, variety, land area + unit (ایکڑ/کنال/مربع), sowing date (native date picker) and water source (نہری/ٹیوب ویل/بارانی). Persisted via a non-destructive Room v4→v5 migration; every AI answer is now conditioned on these fields plus today's date (so timing questions reason from the sowing date)
 - [ ] **P2.3** Knowledge base to 200+ entries, expert-reviewed (§7)
 - [ ] **P2.4** Replace `LIKE` search with **Room FTS4/FTS5** + Urdu/Roman-Urdu synonym expansion, using the existing `UrduDictionary.kt` as a seed (D9)
-- [ ] **P2.5** Safety layer: source badges, verified-vs-AI chips, pesticide guardrails, escalation (F6, §8)
+- [x] **P2.5** Safety layer (F6, §8 ✓) — answers now carry an honest badge (🟢 تصدیق شدہ when grounded in the verified KB, 🔵 AI مشورہ otherwise; the old always-on "verified" badge was misleading); a pesticide/chemical guardrail box ("سپرے سے پہلے تصدیق کریں") on any answer mentioning sprays or doses; a "ماہر سے پوچھیں" escalation that dials the Punjab Agriculture Helpline (0800-15000); 👍/👎 feedback persisted per message (v5→v6 migration); and a standing home-screen disclaimer
+
+### Launch simplification (reduce first-time overwhelm)
+- [x] Hidden the **Mandi-rate tab** — its prices were hardcoded placeholders, and showing fabricated rates as real is a trust/liability risk (re-enable with real sourcing, P3.1). Nav is now 4 items: Ask / My Farm / Guide / History.
+- [x] Removed the fabricated **"Latest Advice"** card ("2 mins ago") and the redundant topic cards from the home; the home is now the big mic + six shortcuts + hands-free toggle + disclaimer.
 - [ ] **P2.6** Crop calendar + weekly nudge notifications (F7)
 
 **Exit criteria:** an agronomist reviews 100 real answers and rates ≥90% "correct and actionable"; zero unsafe pesticide recommendations.
