@@ -78,6 +78,7 @@ fun MainFarmersScreen(
     var showMarketsDialog by remember { mutableStateOf(false) }
     var showSetupDialog by remember { mutableStateOf(false) }
     var showHelpGuideDialog by remember { mutableStateOf(false) }
+    var showMyFarmScreen by remember { mutableStateOf(false) }
     var activeTTSMessageId by remember { mutableStateOf<String?>(null) }
 
     var showCustomVoiceDialog by remember { mutableStateOf(false) }
@@ -391,7 +392,17 @@ fun MainFarmersScreen(
                 )
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                if (showHelpGuideDialog) {
+                if (showMyFarmScreen) {
+                    MyFarmScreen(
+                        profile = userProfile,
+                        onSave = { d, c, v, a, u, s, irr ->
+                            viewModel.saveFarmDetails(d, c, v, a, u, s, irr)
+                            Toast.makeText(context, "میرا کھیت کی معلومات محفوظ ہو گئیں", Toast.LENGTH_SHORT).show()
+                        },
+                        onClose = { showMyFarmScreen = false },
+                        modifier = Modifier.weight(1f)
+                    )
+                } else if (showHelpGuideDialog) {
                     OfflineFarmingGuide(
                         selectedLanguage = selectedLanguage,
                         onClose = { showHelpGuideDialog = false },
@@ -526,7 +537,7 @@ fun MainFarmersScreen(
                 val activeNav = when {
                     showSessionDrawer -> "History"
                     showMarketsDialog -> "Markets"
-                    showSetupDialog -> "Setup"
+                    showMyFarmScreen -> "Farm"
                     showHelpGuideDialog -> "Help"
                     else -> "Home"
                 }
@@ -551,6 +562,7 @@ fun MainFarmersScreen(
                             showMarketsDialog = false
                             showSetupDialog = false
                             showHelpGuideDialog = false
+                            showMyFarmScreen = false
                         }
                     )
 
@@ -563,6 +575,7 @@ fun MainFarmersScreen(
                             showSessionDrawer = false
                             showMarketsDialog = false
                             showSetupDialog = false
+                            showMyFarmScreen = false
                         }
                     )
 
@@ -575,6 +588,7 @@ fun MainFarmersScreen(
                             showMarketsDialog = false
                             showSetupDialog = false
                             showHelpGuideDialog = false
+                            showMyFarmScreen = false
                         }
                     )
 
@@ -587,17 +601,19 @@ fun MainFarmersScreen(
                             showSessionDrawer = false
                             showSetupDialog = false
                             showHelpGuideDialog = false
+                            showMyFarmScreen = false
                         }
                     )
 
                     NavTabItem(
-                        icon = Icons.Default.Settings,
-                        labelUrdu = "سیٹنگز",
-                        isActive = activeNav == "Setup",
+                        icon = Icons.Default.Agriculture,
+                        labelUrdu = "میرا کھیت",
+                        isActive = activeNav == "Farm",
                         onClick = {
-                            showSetupDialog = true
+                            showMyFarmScreen = true
                             showSessionDrawer = false
                             showMarketsDialog = false
+                            showSetupDialog = false
                             showHelpGuideDialog = false
                         }
                     )
