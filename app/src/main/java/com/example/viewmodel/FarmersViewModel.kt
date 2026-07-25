@@ -161,6 +161,31 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
         return repository.getProfileByPhone(phone) != null
     }
 
+    /** Persist the My Farm profile fields (P2.1/P2.2) onto the active farmer's profile. */
+    fun saveFarmDetails(
+        district: String,
+        primaryCrop: String,
+        cropVariety: String,
+        landArea: String,
+        areaUnit: String,
+        sowingDateMillis: Long,
+        irrigationSource: String
+    ) {
+        viewModelScope.launch {
+            val current = userProfile.value ?: return@launch
+            val updated = current.copy(
+                district = district,
+                primaryCrop = primaryCrop.ifBlank { current.primaryCrop },
+                cropVariety = cropVariety,
+                landArea = landArea,
+                areaUnit = areaUnit,
+                sowingDateMillis = sowingDateMillis,
+                irrigationSource = irrigationSource
+            )
+            repository.saveProfile(updated)
+        }
+    }
+
     fun logoutOrClearProfile() {
         viewModelScope.launch {
             repository.clearProfile()
@@ -476,7 +501,36 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
         // Construct Content parts
         val profile = userProfile.value
         val personalizationIntro = if (profile != null) {
-            "The farmer's name is ${profile.fullName}. They are farming in the region of ${profile.region}, with their primary crop of interest being ${profile.primaryCrop}. Always greet them warmly as '${profile.fullName} Bhai' in Urdu/local language and customize all advisory answers specifically for the geographic soil, pest, and climate conditions of ${profile.region} and focus heavily on his main crop ${profile.primaryCrop}."
+            // Build a specific farm context so advice is right for THIS farmer's district, crop
+            // stage, and water source — not generic (P2.1/P2.2). Today's date lets the model
+            // reason about timing relative to the sowing date (e.g. "when do I irrigate?").
+            val locationLine = if (profile.district.isNotBlank()) {
+                "${profile.district} district of ${profile.region}"
+            } else {
+                profile.region
+            }
+            val farmDetails = buildList {
+                if (profile.cropVariety.isNotBlank()) add("crop variety: ${profile.cropVariety}")
+                if (profile.landArea.isNotBlank()) add("farm size: ${profile.landArea} ${profile.areaUnit}")
+                if (profile.irrigationSource.isNotBlank()) add("water source: ${profile.irrigationSource}")
+                if (profile.sowingDateMillis > 0L) {
+                    val fmt = java.text.SimpleDateFormat("d MMMM yyyy", java.util.Locale.ENGLISH)
+                    add("sowing date: ${fmt.format(java.util.Date(profile.sowingDateMillis))}")
+                }
+            }.joinToString("; ")
+            val today = java.text.SimpleDateFormat("d MMMM yyyy", java.util.Locale.ENGLISH)
+                .format(java.util.Date())
+            buildString {
+                append("The farmer's name is ${profile.fullName}. They farm in $locationLine, ")
+                append("with their primary crop being ${profile.primaryCrop}. ")
+                if (farmDetails.isNotEmpty()) append("Farm details — $farmDetails. ")
+                append("Today's date is $today. ")
+                append("Always greet them warmly as '${profile.fullName} Bhai' in Urdu/local language. ")
+                append("Customize every answer to the specific soil, pest, climate and canal/tubewell ")
+                append("conditions of their district, and to their crop's current growth stage inferred ")
+                append("from the sowing date and today's date. When they ask about timing (irrigation, ")
+                append("spraying, fertiliser), reason from the sowing date and season, not generic advice.")
+            }
         } else {
             "No profile setup completed yet. Respond friendly to the generic farmer."
         }

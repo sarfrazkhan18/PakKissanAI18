@@ -258,8 +258,8 @@ Multi-profile exists (`user_profiles`, `isActive` flag) and is the right call. F
 ### Phase 2 — Make it correct (3–4 weeks)
 *Goal: the advice is right for this farmer, this district, this week.*
 
-- [ ] **P2.1** District picker + optional GPS (F1)
-- [ ] **P2.2** My Farm profile: crop, area, sowing date, water source (F2)
+- [~] **P2.1** District picker (F1) — bundled ~100-district searchable list (`PakistanDistricts.kt`) grouped by province, wired into the My Farm screen; the AI advisory is now conditioned on the district. **Remaining:** optional GPS auto-detect (skippable; deferred)
+- [x] **P2.2** My Farm profile (F2 ✓) — new `MyFarmScreen` (میرا کھیت, opened from the bottom nav) captures district, crop, variety, land area + unit (ایکڑ/کنال/مربع), sowing date (native date picker) and water source (نہری/ٹیوب ویل/بارانی). Persisted via a non-destructive Room v4→v5 migration; every AI answer is now conditioned on these fields plus today's date (so timing questions reason from the sowing date)
 - [ ] **P2.3** Knowledge base to 200+ entries, expert-reviewed (§7)
 - [ ] **P2.4** Replace `LIKE` search with **Room FTS4/FTS5** + Urdu/Roman-Urdu synonym expansion, using the existing `UrduDictionary.kt` as a seed (D9)
 - [ ] **P2.5** Safety layer: source badges, verified-vs-AI chips, pesticide guardrails, escalation (F6, §8)
