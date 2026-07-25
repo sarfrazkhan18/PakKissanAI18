@@ -79,6 +79,7 @@ fun MainFarmersScreen(
     var showSetupDialog by remember { mutableStateOf(false) }
     var showHelpGuideDialog by remember { mutableStateOf(false) }
     var showMyFarmScreen by remember { mutableStateOf(false) }
+    var showCalendarScreen by remember { mutableStateOf(false) }
     var activeTTSMessageId by remember { mutableStateOf<String?>(null) }
 
     var showCustomVoiceDialog by remember { mutableStateOf(false) }
@@ -402,6 +403,16 @@ fun MainFarmersScreen(
                         onClose = { showMyFarmScreen = false },
                         modifier = Modifier.weight(1f)
                     )
+                } else if (showCalendarScreen) {
+                    CropCalendarScreen(
+                        profile = userProfile,
+                        onOpenMyFarm = {
+                            showCalendarScreen = false
+                            showMyFarmScreen = true
+                        },
+                        onClose = { showCalendarScreen = false },
+                        modifier = Modifier.weight(1f)
+                    )
                 } else if (showHelpGuideDialog) {
                     OfflineFarmingGuide(
                         selectedLanguage = selectedLanguage,
@@ -410,6 +421,10 @@ fun MainFarmersScreen(
                         modifier = Modifier.weight(1f)
                     )
                 } else {
+                    // Real "this week" crop-stage card (P2.6) — shows only once the farmer has
+                    // set crop + sowing date in My Farm. Replaces the old fabricated advice card.
+                    CropStageCard(profile = userProfile, onOpen = { showCalendarScreen = true })
+
                     // Category Filter Tabs
                     CategoryFilterBar(
                         selectedCategory = selectedCategory,
@@ -564,6 +579,7 @@ fun MainFarmersScreen(
                             showSetupDialog = false
                             showHelpGuideDialog = false
                             showMyFarmScreen = false
+                            showCalendarScreen = false
                         }
                     )
 
@@ -577,6 +593,7 @@ fun MainFarmersScreen(
                             showMarketsDialog = false
                             showSetupDialog = false
                             showMyFarmScreen = false
+                            showCalendarScreen = false
                         }
                     )
 
@@ -590,6 +607,7 @@ fun MainFarmersScreen(
                             showSetupDialog = false
                             showHelpGuideDialog = false
                             showMyFarmScreen = false
+                            showCalendarScreen = false
                         }
                     )
 
@@ -603,6 +621,7 @@ fun MainFarmersScreen(
                         isActive = activeNav == "Farm",
                         onClick = {
                             showMyFarmScreen = true
+                            showCalendarScreen = false
                             showSessionDrawer = false
                             showMarketsDialog = false
                             showSetupDialog = false
