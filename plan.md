@@ -227,29 +227,33 @@ Multi-profile exists (`user_profiles`, `isActive` flag) and is the right call. F
 ### Phase 0 — Stop the bleeding (1 week)
 *Goal: the app is safe to put on a real device in front of a real farmer.*
 
-- [ ] **P0.1** Stand up minimal backend proxy; move the Gemini key server-side; app calls our endpoint (D1)
-- [ ] **P0.2** Hash passwords (`bcrypt`/`Argon2` or Android Keystore); migrate existing rows (D2)
-- [ ] **P0.3** Replace fake OTP with a real SMS provider, **or** remove the OTP step entirely and be honest that it is a local profile (D3)
-- [ ] **P0.4** Write real Room migrations; delete `fallbackToDestructiveMigration()` (D4)
-- [ ] **P0.5** Fix the duplicate-turn race in `sendMessage` (D5)
-- [ ] **P0.6** Verify or fix the Live API WebSocket endpoint; if it does not work, disable the feature behind a flag rather than shipping a dead button
-- [ ] **P0.7** Gate Google Search grounding on intent — only for mandi/weather/subsidy queries (D8). *Expected saving: 70–80% of API cost.*
+- [~] **P0.1** Backend proxy built (`backend/`, zero-dep Node, injects key server-side) and the app base URL is now configurable via `GEMINI_API_BASE_URL` (`build.gradle.kts`). **Remaining:** deploy the proxy behind HTTPS and remove `GEMINI_API_KEY` from the app `.env` — that deploy step is what finally closes D1 (D1 partially closed)
+- [x] **P0.2** Passcodes hashed with salted PBKDF2 (`utils/PasswordHasher.kt`); legacy plaintext rows verified and upgraded on next login (D2 ✓)
+- [x] **P0.3** Fake pre-filled OTP removed; registration now creates a local, on-device profile honestly, with a duplicate-phone guard that routes existing numbers to login (D3 ✓)
+- [x] **P0.4** `fallbackToDestructiveMigration()` removed; schema export enabled (`room.schemaLocation`); destructive fallback limited to pre-release versions 1–3 so v4+ upgrades require a real migration instead of wiping data (D4 ✓)
+- [x] **P0.5** Duplicate-turn race fixed — history is snapshotted before the insert so the model sees the prompt once (D5 ✓)
+- [x] **P0.6** Live WebSocket repointed to the documented `BidiGenerateContent` endpoint + Live-capable model; whole feature gated behind `LIVE_API_ENABLED` (default off) and the entry button hidden until verified (D6-live ✓)
+- [x] **P0.7** Grounding now gated on intent via `needsLiveSearch()` — only mandi/weather/subsidy queries search (D8 ✓)
 
-**Exit criteria:** no secrets in the APK; no data loss on upgrade; API cost per query measured and logged.
+**Exit criteria:** no secrets in the APK *(pending proxy deploy — P0.1)*; no data loss on upgrade *(done)*; API cost per query measured and logged *(cost reduced via P0.7; measurement lands with the proxy in P0.1)*.
+
+**Build note:** changes were written and reviewed without an Android SDK/Gradle toolchain in this environment; a `./gradlew assembleDebug` on a dev machine is the outstanding verification step before merge.
 
 ### Phase 1 — Make it usable in a field (2–3 weeks)
 *Goal: an illiterate farmer in direct sunlight can get one correct answer unaided.*
 
-- [ ] **P1.1** Light theme, default-on, AAA contrast, manual toggle (D6)
-- [ ] **P1.2** Bundle Noto Nastaliq Urdu; fix line heights; standardise numerals
-- [ ] **P1.3** Rework the voice loop: hold-to-talk, transcript confirmation, noise retry, barge-in, replay
-- [ ] **P1.4** Language picker cut to Tier 1 + Tier 2, honestly labelled (D7)
-- [ ] **P1.5** Rebuild home screen: mic + 6 icon shortcuts
-- [ ] **P1.6** Offline-first answering with clear offline state (F4)
-- [ ] **P1.7** Decompose `MainFarmersScreen.kt` (2,774 lines) into per-screen files — required before anyone else can work on it
-- [ ] **P1.8** "بڑا سائز" text-scale toggle
+- [x] **P1.1** Light theme, default-on, manual ☀️/🌙 toggle (D6 ✓). Added a semantic `KisaanColors` token set (light + dark) exposed via `LocalKisaanColors`; built a real `LightColorScheme`; migrated ~294 of the 332 hardcoded `Color(0x…)` literals to tokens (only bright semantic colors — red/blue/white — remain literal). Default is light for sunlight readability; `darkMode` preference persisted, toggled from the top bar
+- [~] **P1.2** Line-heights raised for Urdu; `NumeralUtils` added **and applied** to displayed message text (Eastern→Western digits); single font-swap point (`KisaanFontFamily`). **Remaining only:** bundle the Nastaliq font binary — every source (GitHub raw, jsDelivr, gstatic) is blocked by this environment's proxy, so it must be dropped in on a dev machine and `KisaanFontFamily` pointed at it (a one-line change)
+- [~] **P1.3** Voice loop — **transcript confirmation** added (manual mode shows what STT heard with ✅ بھیجیں / 🔁 دوبارہ, plus سنیں replay and درست کریں edit, before spending an API call); answer **replay + stop-on-tap barge-in already existed** via the bubble speaker toggle; **noise-retry** handled in the listening dialog. **Remaining:** true hold-to-talk (walkie-talkie) mic, a larger rework of the SpeechRecognizer dialog
+- [x] **P1.4** Picker cut to selectable tiers (Urdu, English, Punjabi, Seraiki) with honest voice notes ("پنجابی متن، اردو آواز"); Sindhi/Pashto/Balochi hidden from the voice picker but kept for text translation (D7 ✓)
+- [x] **P1.5** Home shortcuts: six big one-tap icon shortcuts (پانی/کھاد/کیڑے/بیماری/منڈی بھاؤ/موسم) under the big mic on the empty-state home; each sends its question like a spoken query (✓)
+- [x] **P1.6** Offline-first answering: `ConnectivityManager` check; offline (or failed-call) answers come from the local verified KB with a clear "انٹرنیٹ نہیں ہے" banner instead of a dead error; `ACCESS_NETWORK_STATE` added (F4 ✓)
+- [~] **P1.7** Decompose `MainFarmersScreen.kt`. Started: extracted the home-components block (~380 lines: `EmptyStateGuide`, the shortcut grid, `GuideItem`/`HomeShortcut`) into `HomeComponents.kt` (same package, brace/paren-balanced, verified). **Remaining:** the higher-dependency pieces (the SpeechRecognizer + Live dialogs, and the main screen's private voice helpers) are best split with a compiler in the loop
+- [x] **P1.8** "بڑا سائز" text-scale toggle: global `LocalDensity` fontScale (works across hardcoded sp), persisted per device, top-bar toggle (✓)
 
-**Exit criteria:** 5 farmers, no coaching, each completes one voice question → heard answer, outdoors, on a sub-PKR-30k phone.
+**Exit criteria:** 5 farmers, no coaching, each completes one voice question → heard answer, outdoors, on a sub-PKR-30k phone. *(Blocked on P1.1 sunlight-readable theme and P1.3/P1.5 voice+home rework.)*
+
+**Build note:** written and reviewed without an Android SDK/Gradle toolchain in this environment; `./gradlew assembleDebug` on a dev machine remains the outstanding verification step.
 
 ### Phase 2 — Make it correct (3–4 weeks)
 *Goal: the advice is right for this farmer, this district, this week.*

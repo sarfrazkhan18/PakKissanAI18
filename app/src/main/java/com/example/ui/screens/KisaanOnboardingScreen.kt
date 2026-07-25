@@ -147,7 +147,7 @@ fun KisaanOnboardingScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF070B08))
+            .background(LocalKisaanColors.current.background)
     ) {
         // Decorative rich background organic elements
         Box(
@@ -156,8 +156,8 @@ fun KisaanOnboardingScreen(
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            Color(0xFF1B5E20).copy(alpha = 0.15f),
-                            Color(0xFF0A0C0B)
+                            LocalKisaanColors.current.brandGreen.copy(alpha = 0.15f),
+                            LocalKisaanColors.current.background
                         )
                     )
                 )
@@ -182,9 +182,9 @@ fun KisaanOnboardingScreen(
             ) {
                 for (i in 0..3) {
                     val progressColor = when {
-                        currentStep == i -> Color(0xFF10B981) // active emerald
-                        currentStep > i -> Color(0xFF1B5E20)  // completed
-                        else -> Color(0xFF1F2420)             // pending
+                        currentStep == i -> LocalKisaanColors.current.accent // active emerald
+                        currentStep > i -> LocalKisaanColors.current.brandGreen  // completed
+                        else -> LocalKisaanColors.current.surface             // pending
                     }
                     val weight = if (currentStep == i) 2f else 1f
                     Box(
@@ -224,12 +224,33 @@ fun KisaanOnboardingScreen(
                             onPasswordChange = { password = it },
                             isSent = isVerificationSent,
                             onSendOtp = {
-                                isSendingOtp = true
-                                playVoiceGuidance(UrduDictionary.VOICE_OTP_SENT, "Sending verification OTP.")
-                                Toast.makeText(context, "کِسان دوست کوڈ: '1234' بھیج دیا گیا ہے", Toast.LENGTH_LONG).show()
-                                isVerificationSent = true
-                                isSendingOtp = false
-                                verificationCode = "1234" // Pre-fill code to prevent stuckness
+                                // No SMS/OTP is sent — this creates a local, on-device profile.
+                                // The earlier flow faked an OTP ("1234"), which gave a false
+                                // impression of phone verification. We now register honestly and
+                                // just guard against overwriting an existing local account.
+                                scope.launch {
+                                    isSendingOtp = true
+                                    if (viewModel.isPhoneAlreadyRegistered(phoneNumber)) {
+                                        isSendingOtp = false
+                                        playVoiceGuidance(
+                                            "یہ نمبر پہلے سے اس فون پر موجود ہے۔ براہ کرم لاگ ان کریں۔",
+                                            "This number already exists on this phone. Please log in."
+                                        )
+                                        Toast.makeText(
+                                            context,
+                                            "یہ نمبر پہلے سے موجود ہے۔ براہ کرم لاگ ان کریں۔",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                        isLoginMode = true
+                                    } else {
+                                        isSendingOtp = false
+                                        playVoiceGuidance(
+                                            "شکریہ! اب اپنا نام اور زبان منتخب کریں۔",
+                                            "Thank you. Now choose your name and language."
+                                        )
+                                        currentStep = 1
+                                    }
+                                }
                             },
                             code = verificationCode,
                             onCodeChange = { verificationCode = it },
@@ -264,7 +285,7 @@ fun KisaanOnboardingScreen(
                                 } else {
                                     playVoiceGuidance(
                                         UrduDictionary.VOICE_STEP_AUTH_HELP,
-                                        "Please register safety OTP with phone number."
+                                        "Enter your mobile number and a passcode to create your local account."
                                     )
                                 }
                             }
@@ -367,8 +388,8 @@ fun KisaanOnboardingScreen(
                     FilledTonalButton(
                         onClick = { currentStep-- },
                         colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = Color(0xFF1F2420),
-                            contentColor = Color(0xFFD1E8D1)
+                            containerColor = LocalKisaanColors.current.surface,
+                            contentColor = LocalKisaanColors.current.textHeading
                         ),
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier
@@ -395,7 +416,7 @@ fun KisaanOnboardingScreen(
                     },
                     modifier = Modifier
                         .clip(CircleShape)
-                        .background(Color(0xFF10B981).copy(alpha = 0.15f))
+                        .background(LocalKisaanColors.current.accent.copy(alpha = 0.15f))
                         .size(54.dp)
                 ) {
                     val scale by rememberInfiniteTransition().animateFloat(
@@ -409,7 +430,7 @@ fun KisaanOnboardingScreen(
                     Icon(
                         imageVector = Icons.Default.VolumeUp,
                         contentDescription = "Read Aloud",
-                        tint = Color(0xFF10B981),
+                        tint = LocalKisaanColors.current.accent,
                         modifier = Modifier.size(26.dp)
                     )
                 }
@@ -426,7 +447,7 @@ fun KisaanOnboardingScreen(
                             }
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF10B981),
+                            containerColor = LocalKisaanColors.current.accent,
                             contentColor = Color(0xFFFFFFFF)
                         ),
                         shape = RoundedCornerShape(14.dp),
@@ -481,7 +502,7 @@ fun OnboardingStepAuth(
                 .fillMaxWidth()
                 .height(130.dp)
                 .clip(RoundedCornerShape(16.dp))
-                .border(1.dp, Color(0xFF3E4A40), RoundedCornerShape(16.dp)),
+                .border(1.dp, LocalKisaanColors.current.border, RoundedCornerShape(16.dp)),
             contentScale = ContentScale.Crop
         )
 
@@ -493,12 +514,12 @@ fun OnboardingStepAuth(
                 .background(
                     Brush.linearGradient(
                         colors = listOf(
-                            Color(0xFF1B5E20).copy(alpha = 0.25f),
-                            Color(0xFF112214).copy(alpha = 0.45f)
+                            LocalKisaanColors.current.brandGreen.copy(alpha = 0.25f),
+                            LocalKisaanColors.current.brandGreen.copy(alpha = 0.45f)
                         )
                     )
                 )
-                .border(2.dp, Color(0xFF10B981).copy(alpha = 0.35f), RoundedCornerShape(16.dp))
+                .border(2.dp, LocalKisaanColors.current.accent.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
                 .padding(14.dp)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -509,14 +530,14 @@ fun OnboardingStepAuth(
                     Box(
                         modifier = Modifier
                             .clip(CircleShape)
-                            .background(Color(0xFF10B981).copy(alpha = 0.2f))
+                            .background(LocalKisaanColors.current.accent.copy(alpha = 0.2f))
                             .size(28.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Agriculture,
                             contentDescription = null,
-                            tint = Color(0xFF10B981),
+                            tint = LocalKisaanColors.current.accent,
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -524,14 +545,14 @@ fun OnboardingStepAuth(
                         text = "آپ کا اپنا سمارٹ زرعی مینیجر (Smart Manager)",
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp,
-                        color = Color(0xFFD1E8D1)
+                        color = LocalKisaanColors.current.textHeading
                     )
                 }
                 
                 Text(
                     text = "فصلوں کی نگرانی اور بیماریوں کے تدارک کے ساتھ ساتھ آپ کے مال مویشی کے لیے ڈاکٹر کی طرح بہترین گائیڈ۔",
                     fontSize = 11.sp,
-                    color = Color(0xFFE1E3E1).copy(alpha = 0.85f),
+                    color = LocalKisaanColors.current.textPrimary.copy(alpha = 0.85f),
                     lineHeight = 16.sp
                 )
 
@@ -558,14 +579,14 @@ fun OnboardingStepAuth(
                 text = if (isLoginMode) "لاگ ان کریں (Secure Login)" else UrduDictionary.REGISTRATION_TITLE,
                 fontSize = 19.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFFD1E8D1)
+                color = LocalKisaanColors.current.textHeading
             )
 
             IconButton(onClick = onVoicePlay) {
                 Icon(
                     imageVector = Icons.Default.VolumeUp,
                     contentDescription = "Help Voice Guide",
-                    tint = Color(0xFF10B981)
+                    tint = LocalKisaanColors.current.accent
                 )
             }
         }
@@ -574,14 +595,14 @@ fun OnboardingStepAuth(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(14.dp))
-                .background(Color(0xFF131A15))
+                .background(LocalKisaanColors.current.surfaceAlt)
                 .padding(4.dp)
         ) {
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(if (!isLoginMode) Color(0xFF1B5E20) else Color.Transparent)
+                    .background(if (!isLoginMode) LocalKisaanColors.current.brandGreen else Color.Transparent)
                     .clickable { onLoginModeChange(false) }
                     .padding(vertical = 10.dp),
                 contentAlignment = Alignment.Center
@@ -597,7 +618,7 @@ fun OnboardingStepAuth(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(if (isLoginMode) Color(0xFF1B5E20) else Color.Transparent)
+                    .background(if (isLoginMode) LocalKisaanColors.current.brandGreen else Color.Transparent)
                     .clickable { onLoginModeChange(true) }
                     .padding(vertical = 10.dp),
                 contentAlignment = Alignment.Center
@@ -627,23 +648,23 @@ fun OnboardingStepAuth(
                         modifier = Modifier
                             .padding(8.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF10B981).copy(alpha = 0.15f))
+                            .background(LocalKisaanColors.current.accent.copy(alpha = 0.15f))
                             .size(36.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Phone,
                             contentDescription = null,
-                            tint = Color(0xFF10B981),
+                            tint = LocalKisaanColors.current.accent,
                             modifier = Modifier.size(18.dp)
                         )
                     }
                 },
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF10B981),
-                    unfocusedBorderColor = Color(0xFF3E4A40),
-                    focusedLabelColor = Color(0xFF10B981),
-                    unfocusedLabelColor = Color(0xFFE1E3E1).copy(alpha = 0.5f),
+                    focusedBorderColor = LocalKisaanColors.current.accent,
+                    unfocusedBorderColor = LocalKisaanColors.current.border,
+                    focusedLabelColor = LocalKisaanColors.current.accent,
+                    unfocusedLabelColor = LocalKisaanColors.current.textPrimary.copy(alpha = 0.5f),
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White
                 ),
@@ -663,23 +684,23 @@ fun OnboardingStepAuth(
                         modifier = Modifier
                             .padding(8.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFF5B041).copy(alpha = 0.15f))
+                            .background(LocalKisaanColors.current.gold.copy(alpha = 0.15f))
                             .size(36.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Lock,
                             contentDescription = null,
-                            tint = Color(0xFFF5B041),
+                            tint = LocalKisaanColors.current.gold,
                             modifier = Modifier.size(18.dp)
                         )
                     }
                 },
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF10B981),
-                    unfocusedBorderColor = Color(0xFF3E4A40),
-                    focusedLabelColor = Color(0xFF10B981),
-                    unfocusedLabelColor = Color(0xFFE1E3E1).copy(alpha = 0.5f),
+                    focusedBorderColor = LocalKisaanColors.current.accent,
+                    unfocusedBorderColor = LocalKisaanColors.current.border,
+                    focusedLabelColor = LocalKisaanColors.current.accent,
+                    unfocusedLabelColor = LocalKisaanColors.current.textPrimary.copy(alpha = 0.5f),
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White
                 ),
@@ -690,7 +711,7 @@ fun OnboardingStepAuth(
             Button(
                 onClick = onLoginSubmit,
                 enabled = phoneNumber.isNotBlank() && password.length >= 3 && !isSending,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                colors = ButtonDefaults.buttonColors(containerColor = LocalKisaanColors.current.accent),
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -717,23 +738,23 @@ fun OnboardingStepAuth(
                             modifier = Modifier
                                 .padding(8.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFF10B981).copy(alpha = 0.15f))
+                                .background(LocalKisaanColors.current.accent.copy(alpha = 0.15f))
                                 .size(36.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Phone,
                                 contentDescription = null,
-                                tint = Color(0xFF10B981),
+                                tint = LocalKisaanColors.current.accent,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
                     },
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF10B981),
-                        unfocusedBorderColor = Color(0xFF3E4A40),
-                        focusedLabelColor = Color(0xFF10B981),
-                        unfocusedLabelColor = Color(0xFFE1E3E1).copy(alpha = 0.5f),
+                        focusedBorderColor = LocalKisaanColors.current.accent,
+                        unfocusedBorderColor = LocalKisaanColors.current.border,
+                        focusedLabelColor = LocalKisaanColors.current.accent,
+                        unfocusedLabelColor = LocalKisaanColors.current.textPrimary.copy(alpha = 0.5f),
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White
                     ),
@@ -753,23 +774,23 @@ fun OnboardingStepAuth(
                             modifier = Modifier
                                 .padding(8.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFFF5B041).copy(alpha = 0.15f))
+                                .background(LocalKisaanColors.current.gold.copy(alpha = 0.15f))
                                 .size(36.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Lock,
                                 contentDescription = null,
-                                tint = Color(0xFFF5B041),
+                                tint = LocalKisaanColors.current.gold,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
                     },
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF10B981),
-                        unfocusedBorderColor = Color(0xFF3E4A40),
-                        focusedLabelColor = Color(0xFF10B981),
-                        unfocusedLabelColor = Color(0xFFE1E3E1).copy(alpha = 0.5f),
+                        focusedBorderColor = LocalKisaanColors.current.accent,
+                        unfocusedBorderColor = LocalKisaanColors.current.border,
+                        focusedLabelColor = LocalKisaanColors.current.accent,
+                        unfocusedLabelColor = LocalKisaanColors.current.textPrimary.copy(alpha = 0.5f),
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White
                     ),
@@ -780,7 +801,7 @@ fun OnboardingStepAuth(
                 Button(
                     onClick = onSendOtp,
                     enabled = phoneNumber.length >= 3 && !isSending,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                    colors = ButtonDefaults.buttonColors(containerColor = LocalKisaanColors.current.accent),
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -798,8 +819,8 @@ fun OnboardingStepAuth(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(16.dp))
-                        .background(Color(0xFF131A15))
-                        .border(1.dp, Color(0xFF1B5E20), RoundedCornerShape(16.dp))
+                        .background(LocalKisaanColors.current.surfaceAlt)
+                        .border(1.dp, LocalKisaanColors.current.brandGreen, RoundedCornerShape(16.dp))
                         .padding(16.dp)
                 ) {
                     Column(
@@ -810,19 +831,19 @@ fun OnboardingStepAuth(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(imageVector = Icons.Default.Sms, contentDescription = "SMS", tint = Color(0xFF10B981))
+                            Icon(imageVector = Icons.Default.Sms, contentDescription = "SMS", tint = LocalKisaanColors.current.accent)
                             Text(
                                 text = UrduDictionary.SMS_CODE_SENT,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp,
-                                color = Color(0xFFD1E8D1)
+                                color = LocalKisaanColors.current.textHeading
                             )
                         }
 
                         Text(
                             text = UrduDictionary.SMS_INSTRUCTION,
                             fontSize = 11.sp,
-                            color = Color(0xFFE1E3E1).copy(alpha = 0.6f),
+                            color = LocalKisaanColors.current.textPrimary.copy(alpha = 0.6f),
                             textAlign = TextAlign.Center
                         )
 
@@ -851,9 +872,9 @@ fun OnboardingStepAuth(
                                 }
                             },
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF10B981),
-                                unfocusedBorderColor = Color(0xFF3E4A40),
-                                focusedLabelColor = Color(0xFF10B981),
+                                focusedBorderColor = LocalKisaanColors.current.accent,
+                                unfocusedBorderColor = LocalKisaanColors.current.border,
+                                focusedLabelColor = LocalKisaanColors.current.accent,
                                 focusedTextColor = Color.White,
                                 unfocusedTextColor = Color.White
                             ),
@@ -864,7 +885,7 @@ fun OnboardingStepAuth(
                         Button(
                             onClick = onVerifyCode,
                             enabled = code.isNotBlank(),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                            colors = ButtonDefaults.buttonColors(containerColor = LocalKisaanColors.current.accent),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -884,15 +905,15 @@ fun BadgeItem(ur: String, en: String, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(10.dp))
-            .background(Color(0xFF0F1411))
-            .border(1.dp, Color(0xFF1F2922), RoundedCornerShape(10.dp))
+            .background(LocalKisaanColors.current.surfaceAlt)
+            .border(1.dp, LocalKisaanColors.current.surface, RoundedCornerShape(10.dp))
             .padding(horizontal = 4.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(text = ur, fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1)
             Spacer(modifier = Modifier.height(2.dp))
-            Text(text = en, fontSize = 8.sp, color = Color(0xFF10B981), fontWeight = FontWeight.Medium, maxLines = 1)
+            Text(text = en, fontSize = 8.sp, color = LocalKisaanColors.current.accent, fontWeight = FontWeight.Medium, maxLines = 1)
         }
     }
 }
@@ -917,7 +938,7 @@ fun OnboardingStepNameLanguage(
         Icon(
             imageVector = Icons.Default.AccountCircle,
             contentDescription = "Profile icon",
-            tint = Color(0xFF10B981),
+            tint = LocalKisaanColors.current.accent,
             modifier = Modifier.size(64.dp)
         )
 
@@ -925,14 +946,14 @@ fun OnboardingStepNameLanguage(
             text = UrduDictionary.BIO_TITLE,
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFFD1E8D1),
+            color = LocalKisaanColors.current.textHeading,
             textAlign = TextAlign.Center
         )
 
         Text(
             text = UrduDictionary.BIO_DESC,
             fontSize = 11.sp,
-            color = Color(0xFFE1E3E1).copy(alpha = 0.6f),
+            color = LocalKisaanColors.current.textPrimary.copy(alpha = 0.6f),
             textAlign = TextAlign.Center
         )
 
@@ -952,22 +973,22 @@ fun OnboardingStepNameLanguage(
                         modifier = Modifier
                             .padding(8.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF10B981).copy(alpha = 0.15f))
+                            .background(LocalKisaanColors.current.accent.copy(alpha = 0.15f))
                             .size(36.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Person,
                             contentDescription = null,
-                            tint = Color(0xFF10B981),
+                            tint = LocalKisaanColors.current.accent,
                             modifier = Modifier.size(20.dp)
                         )
                     }
                 },
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF10B981),
-                    unfocusedBorderColor = Color(0xFF3E4A40),
-                    focusedLabelColor = Color(0xFF10B981),
+                    focusedBorderColor = LocalKisaanColors.current.accent,
+                    unfocusedBorderColor = LocalKisaanColors.current.border,
+                    focusedLabelColor = LocalKisaanColors.current.accent,
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White
                 ),
@@ -979,7 +1000,7 @@ fun OnboardingStepNameLanguage(
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFF10B981))
+                    .background(LocalKisaanColors.current.accent)
                     .clickable(onClick = onVoiceToTextClick)
                     .size(54.dp),
                 contentAlignment = Alignment.Center
@@ -1001,7 +1022,7 @@ fun OnboardingStepNameLanguage(
             Text(
                 text = "آواز متبادل (ٹیسٹ کرنے کے لیے نام پر کلک کریں):",
                 fontSize = 11.sp,
-                color = Color(0xFF10B981),
+                color = LocalKisaanColors.current.accent,
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier.padding(bottom = 6.dp)
             )
@@ -1012,8 +1033,8 @@ fun OnboardingStepNameLanguage(
                 listOf("احمد علی", "محمد خان", "سرفراز احمد").forEach { testName ->
                     Box(
                         modifier = Modifier
-                            .background(Color(0xFF161B17), RoundedCornerShape(10.dp))
-                            .border(BorderStroke(1.dp, Color(0xFF2E3B30)), RoundedCornerShape(10.dp))
+                            .background(LocalKisaanColors.current.surface, RoundedCornerShape(10.dp))
+                            .border(BorderStroke(1.dp, LocalKisaanColors.current.border), RoundedCornerShape(10.dp))
                             .clickable { onNameChange(testName) }
                             .padding(horizontal = 12.dp, vertical = 8.dp)
                     ) {
@@ -1029,13 +1050,13 @@ fun OnboardingStepNameLanguage(
             text = UrduDictionary.DIALECT_TITLE,
             fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFFD1E8D1),
+            color = LocalKisaanColors.current.textHeading,
             modifier = Modifier.align(Alignment.Start)
         )
 
         val dialects = listOf(
-            DialectItem("Urdu", "اردو مادری زبان", Icons.Default.ChatBubbleOutline, Color(0xFF10B981)),
-            DialectItem("Punjabi", "پنجابی (شاہ مکھی)", Icons.Default.Agriculture, Color(0xFFF5B041)),
+            DialectItem("Urdu", "اردو مادری زبان", Icons.Default.ChatBubbleOutline, LocalKisaanColors.current.accent),
+            DialectItem("Punjabi", "پنجابی (شاہ مکھی)", Icons.Default.Agriculture, LocalKisaanColors.current.gold),
             DialectItem("Sindhi", "سنڌی ٻولی", Icons.Default.WaterDrop, Color(0xFF3B82F6)),
             DialectItem("Pashto", "پښتو ژبه", Icons.Default.Nature, Color(0xFFEF4444)),
             DialectItem("Seraiki", "سرائیکی لہجہ", Icons.Default.Grass, Color(0xFF8B5CF6)),
@@ -1053,10 +1074,10 @@ fun OnboardingStepNameLanguage(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(12.dp))
-                        .background(if (isSelected) item.accent.copy(alpha = 0.15f) else Color(0xFF131A15))
+                        .background(if (isSelected) item.accent.copy(alpha = 0.15f) else LocalKisaanColors.current.surfaceAlt)
                         .border(
                             width = if (isSelected) 2.dp else 1.dp,
-                            color = if (isSelected) item.accent else Color(0xFF3E4A40),
+                            color = if (isSelected) item.accent else LocalKisaanColors.current.border,
                             shape = RoundedCornerShape(12.dp)
                         )
                         .clickable { onDialectChange(item.id) }
@@ -1070,7 +1091,7 @@ fun OnboardingStepNameLanguage(
                         Icon(
                             imageVector = item.icon,
                             contentDescription = item.label,
-                            tint = if (isSelected) item.accent else Color(0xFFE1E3E1).copy(alpha = 0.5f),
+                            tint = if (isSelected) item.accent else LocalKisaanColors.current.textPrimary.copy(alpha = 0.5f),
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.height(4.dp))
@@ -1078,7 +1099,7 @@ fun OnboardingStepNameLanguage(
                             text = item.label,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                             fontSize = 12.sp,
-                            color = if (isSelected) Color.White else Color(0xFFE1E3E1).copy(alpha = 0.7f),
+                            color = if (isSelected) Color.White else LocalKisaanColors.current.textPrimary.copy(alpha = 0.7f),
                             textAlign = TextAlign.Center
                         )
                     }
@@ -1113,20 +1134,20 @@ fun OnboardingStepRegion(
             text = UrduDictionary.REGION_TITLE,
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFFD1E8D1),
+            color = LocalKisaanColors.current.textHeading,
             textAlign = TextAlign.Center
         )
 
         Text(
             text = UrduDictionary.REGION_DESC,
             fontSize = 12.sp,
-            color = Color(0xFFE1E3E1).copy(alpha = 0.6f),
+            color = LocalKisaanColors.current.textPrimary.copy(alpha = 0.6f),
             textAlign = TextAlign.Center
         )
 
         val regions = listOf(
-            RegionCardItem("Punjab", "پنجاب", "گندم، کماد، دھان اور نہری پانی", Icons.Default.Grass, Color(0xFF10B981)),
-            RegionCardItem("Sindh", "سندھ", "کپاس، چاول، کیلا اور صوفیانہ زمین", Icons.Default.Water, Color(0xFFF5B041)),
+            RegionCardItem("Punjab", "پنجاب", "گندم، کماد، دھان اور نہری پانی", Icons.Default.Grass, LocalKisaanColors.current.accent),
+            RegionCardItem("Sindh", "سندھ", "کپاس، چاول، کیلا اور صوفیانہ زمین", Icons.Default.Water, LocalKisaanColors.current.gold),
             RegionCardItem("KPK", "خیبر پختونخوا", "تمباکو، باغات، مکئی اور پہاڑی زراعت", Icons.Default.Terrain, Color(0xFF3B82F6)),
             RegionCardItem("Balochistan", "بلوچستان", "سیب، اڑو، انگور اور کاریز آبپاشی", Icons.Default.WbSunny, Color(0xFFEF4444))
         )
@@ -1141,10 +1162,10 @@ fun OnboardingStepRegion(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
-                        .background(if (isSelected) item.color.copy(alpha = 0.12f) else Color(0xFF131A15))
+                        .background(if (isSelected) item.color.copy(alpha = 0.12f) else LocalKisaanColors.current.surfaceAlt)
                         .border(
                             width = if (isSelected) 2.dp else 1.dp,
-                            color = if (isSelected) item.color else Color(0xFF3E4A40),
+                            color = if (isSelected) item.color else LocalKisaanColors.current.border,
                             shape = RoundedCornerShape(12.dp)
                         )
                         .clickable { onRegionSelect(item.id) }
@@ -1177,7 +1198,7 @@ fun OnboardingStepRegion(
                             Text(
                                 text = item.detailsUrdu,
                                 fontSize = 11.sp,
-                                color = Color(0xFFE1E3E1).copy(alpha = 0.6f)
+                                color = LocalKisaanColors.current.textPrimary.copy(alpha = 0.6f)
                             )
                         }
                     }
@@ -1187,7 +1208,7 @@ fun OnboardingStepRegion(
                         onClick = { onRegionSelect(item.id) },
                         colors = RadioButtonDefaults.colors(
                             selectedColor = item.color,
-                            unselectedColor = Color(0xFF3E4A40)
+                            unselectedColor = LocalKisaanColors.current.border
                         )
                     )
                 }
@@ -1214,7 +1235,7 @@ fun OnboardingStepCrops(
         Icon(
             imageVector = Icons.Default.Spa,
             contentDescription = "Crop icon",
-            tint = Color(0xFF10B981),
+            tint = LocalKisaanColors.current.accent,
             modifier = Modifier.size(54.dp)
         )
 
@@ -1222,20 +1243,20 @@ fun OnboardingStepCrops(
             text = UrduDictionary.CROP_TITLE,
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFFD1E8D1),
+            color = LocalKisaanColors.current.textHeading,
             textAlign = TextAlign.Center
         )
 
         Text(
             text = UrduDictionary.CROP_DESC,
             fontSize = 11.sp,
-            color = Color(0xFFE1E3E1).copy(alpha = 0.6f),
+            color = LocalKisaanColors.current.textPrimary.copy(alpha = 0.6f),
             textAlign = TextAlign.Center
         )
 
         val crops = listOf(
-            CropItem("Wheat", "🌾 گندم (Wheat)", Color(0xFFF5B041)),
-            CropItem("Cotton", "☁️ کپاس (Cotton)", Color(0xFFE1E3E1)),
+            CropItem("Wheat", "🌾 گندم (Wheat)", LocalKisaanColors.current.gold),
+            CropItem("Cotton", "☁️ کپاس (Cotton)", LocalKisaanColors.current.textPrimary),
             CropItem("Rice", "🍚 چاول (Rice)", Color(0xFF60A5FA)),
             CropItem("Sugarcane", "🎋 گنا / کماد", Color(0xFF34D399)),
             CropItem("Livestock", "🐄 مال مویشی", Color(0xFFF87171)),
@@ -1255,10 +1276,10 @@ fun OnboardingStepCrops(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(12.dp))
-                        .background(if (isSelected) item.color.copy(alpha = 0.15f) else Color(0xFF131A15))
+                        .background(if (isSelected) item.color.copy(alpha = 0.15f) else LocalKisaanColors.current.surfaceAlt)
                         .border(
                             width = if (isSelected) 2.dp else 1.dp,
-                            color = if (isSelected) item.color else Color(0xFF3E4A40),
+                            color = if (isSelected) item.color else LocalKisaanColors.current.border,
                             shape = RoundedCornerShape(12.dp)
                         )
                         .clickable { onCropSelect(item.id) }
@@ -1269,7 +1290,7 @@ fun OnboardingStepCrops(
                         text = item.label,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                         fontSize = 13.sp,
-                        color = if (isSelected) Color.White else Color(0xFFE1E3E1).copy(alpha = 0.8f),
+                        color = if (isSelected) Color.White else LocalKisaanColors.current.textPrimary.copy(alpha = 0.8f),
                         textAlign = TextAlign.Center
                     )
                 }
@@ -1281,7 +1302,7 @@ fun OnboardingStepCrops(
         Button(
             onClick = onFinish,
             enabled = selectedCrop.isNotBlank(),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+            colors = ButtonDefaults.buttonColors(containerColor = LocalKisaanColors.current.accent),
             shape = RoundedCornerShape(14.dp),
             modifier = Modifier
                 .fillMaxWidth()

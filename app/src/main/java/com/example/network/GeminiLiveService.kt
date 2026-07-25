@@ -52,6 +52,14 @@ class GeminiLiveService {
     private val serviceScope = CoroutineScope(Dispatchers.IO)
 
     fun connect(language: LanguageOption) {
+        // Real-time voice is gated off until the endpoint is verified against a live key
+        // (see BuildConfig.LIVE_API_ENABLED). Prevents shipping a button that never works.
+        if (!BuildConfig.LIVE_API_ENABLED) {
+            _connectionState.value =
+                LiveConnectionState.Error("لائیو آواز کی سہولت ابھی دستیاب نہیں ہے۔")
+            return
+        }
+
         val apiKey = BuildConfig.GEMINI_API_KEY
         if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
             _connectionState.value = LiveConnectionState.Error("API Key is missing or default placeholder.")
@@ -61,10 +69,12 @@ class GeminiLiveService {
         disconnect()
         _connectionState.value = LiveConnectionState.Connecting
 
-        // Using standard Google generativelanguage websocket live toolkit endpoint
-        // Using v1alpha.LiveConnect as standard for Multimodal Live/Bidi API
-        val url = "wss://generativelanguage.googleapis.com/ws/google.ai.generativetoolkit.v1alpha.Pipelines?key=$apiKey"
-        Log.d(tag, "Connecting to: $url")
+        // Documented Gemini Live (Bidi) WebSocket endpoint. The previous
+        // "generativetoolkit.v1alpha.Pipelines" path was not a valid Live API surface.
+        // NOTE: verify the paired model below with a real key before flipping the flag on.
+        val url = "wss://generativelanguage.googleapis.com/ws/" +
+            "google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=$apiKey"
+        Log.d(tag, "Connecting to Live API")
 
         val request = Request.Builder()
             .url(url)
@@ -119,8 +129,9 @@ class GeminiLiveService {
 
             val setupJson = JSONObject().apply {
                 put("setup", JSONObject().apply {
-                    // Using modern preview model supported for Real-time audio & video tasks
-                    put("model", "models/gemini-2.5-flash")
+                    // Live API requires a Live-capable model, not the standard flash model.
+                    // Verify current availability when enabling the feature.
+                    put("model", "models/gemini-2.0-flash-live-001")
                     put("generationConfig", JSONObject().apply {
                         // Requesting audio as primary live output modality
                         val modalities = JSONArray().apply {

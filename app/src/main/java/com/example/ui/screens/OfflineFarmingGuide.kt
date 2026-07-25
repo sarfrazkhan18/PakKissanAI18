@@ -31,6 +31,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.AgriKnowledge
+import com.example.ui.theme.LocalKisaanColors
 import com.example.viewmodel.LanguageOption
 import java.util.Locale
 
@@ -170,7 +171,7 @@ fun OfflineFarmingGuide(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF0A0C0B))
+            .background(LocalKisaanColors.current.background)
             .padding(top = 8.dp)
     ) {
         // Welcoming header card
@@ -178,7 +179,7 @@ fun OfflineFarmingGuide(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 6.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF161B17)),
+            colors = CardDefaults.cardColors(containerColor = LocalKisaanColors.current.surface),
             border = BoxDefaults.cardBorder()
         ) {
             Row(
@@ -193,14 +194,14 @@ fun OfflineFarmingGuide(
                             modifier = Modifier
                                 .size(8.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFF10B981))
+                                .background(LocalKisaanColors.current.accent)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "آف لائن زرعی رہنمائی • Offline Smart Guide",
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
-                            color = Color(0xFF10B981)
+                            color = LocalKisaanColors.current.accent
                         )
                     }
                     Spacer(modifier = Modifier.height(4.dp))
@@ -208,7 +209,7 @@ fun OfflineFarmingGuide(
                         text = "انٹرنیٹ کے بغیر بھی بہترین کاشتکاری کے طریقے سیکھیں اور اپنی پیداوار دگنی کریں۔",
                         fontWeight = FontWeight.Normal,
                         fontSize = 11.sp,
-                        color = Color(0xFFE1E3E1).copy(alpha = 0.8f),
+                        color = LocalKisaanColors.current.textPrimary.copy(alpha = 0.8f),
                         lineHeight = 16.sp
                     )
                 }
@@ -217,13 +218,13 @@ fun OfflineFarmingGuide(
                     onClick = onClose,
                     modifier = Modifier
                         .size(32.dp)
-                        .background(Color(0xFF2C3E2F), CircleShape)
+                        .background(LocalKisaanColors.current.border, CircleShape)
                         .testTag("close_help_button")
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "قریب کریں Close Guide",
-                        tint = Color(0xFFD1E8D1),
+                        tint = LocalKisaanColors.current.textHeading,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -238,20 +239,20 @@ fun OfflineFarmingGuide(
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 4.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .border(1.dp, Color(0xFF323F34), RoundedCornerShape(12.dp))
+                .border(1.dp, LocalKisaanColors.current.border, RoundedCornerShape(12.dp))
                 .testTag("help_guide_search_bar"),
             placeholder = {
                 Text(
                     text = "فصل کا نام، کھاد، پانی یا کیڑے مکوڑے تلاش کریں...",
                     fontSize = 12.sp,
-                    color = Color(0xFFE1E3E1).copy(alpha = 0.5f)
+                    color = LocalKisaanColors.current.textPrimary.copy(alpha = 0.5f)
                 )
             },
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Default.Search,
                     contentDescription = "تلاش کریں Search",
-                    tint = Color(0xFF10B981)
+                    tint = LocalKisaanColors.current.accent
                 )
             },
             trailingIcon = {
@@ -260,18 +261,18 @@ fun OfflineFarmingGuide(
                         Icon(
                             imageVector = Icons.Default.Clear,
                             contentDescription = "صاف کریں۔ Clear Search",
-                            tint = Color(0xFFE1E3E1).copy(alpha = 0.6f)
+                            tint = LocalKisaanColors.current.textPrimary.copy(alpha = 0.6f)
                         )
                     }
                 }
             },
             colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color(0xFF111412),
-                unfocusedContainerColor = Color(0xFF111412),
+                focusedContainerColor = LocalKisaanColors.current.surfaceAlt,
+                unfocusedContainerColor = LocalKisaanColors.current.surfaceAlt,
                 focusedIndicatorColor = Color.Transparent,
                 unfocusedIndicatorColor = Color.Transparent,
-                focusedTextColor = Color(0xFFE1E3E1),
-                unfocusedTextColor = Color(0xFFE1E3E1)
+                focusedTextColor = LocalKisaanColors.current.textPrimary,
+                unfocusedTextColor = LocalKisaanColors.current.textPrimary
             ),
             singleLine = true
         )
@@ -297,10 +298,10 @@ fun OfflineFarmingGuide(
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(if (isSelected) Color(0xFF10B981) else Color(0xFF161B17))
+                        .background(if (isSelected) LocalKisaanColors.current.accent else LocalKisaanColors.current.surface)
                         .border(
                             width = 1.dp,
-                            color = if (isSelected) Color(0xFF10B981) else Color(0xFF2C3E2F),
+                            color = if (isSelected) LocalKisaanColors.current.accent else LocalKisaanColors.current.border,
                             shape = RoundedCornerShape(8.dp)
                         )
                         .clickable { selectedCategoryTab = catKey }
@@ -314,7 +315,7 @@ fun OfflineFarmingGuide(
                             text = catName,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (isSelected) Color.Black else Color(0xFFD1E8D1)
+                            color = if (isSelected) Color.Black else LocalKisaanColors.current.textHeading
                         )
                     }
                 }
@@ -337,7 +338,7 @@ fun OfflineFarmingGuide(
                     Icon(
                         imageVector = Icons.Default.Info,
                         contentDescription = "کوئی معلومات نہیں ملی",
-                        tint = Color(0xFF10B981).copy(alpha = 0.5f),
+                        tint = LocalKisaanColors.current.accent.copy(alpha = 0.5f),
                         modifier = Modifier.size(54.dp)
                     )
                     Spacer(modifier = Modifier.height(12.dp))
@@ -345,13 +346,13 @@ fun OfflineFarmingGuide(
                         text = "کوئی رہنمائی نہیں ملی",
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
-                        color = Color(0xFFD1E8D1)
+                        color = LocalKisaanColors.current.textHeading
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "کچھ اور تلاش کرنے کی کوشش کریں جیسے کہ 'گندم' یا 'پانی' تاکہ درست متبادل ملے۔",
                         fontSize = 11.sp,
-                        color = Color(0xFFE1E3E1).copy(alpha = 0.6f),
+                        color = LocalKisaanColors.current.textPrimary.copy(alpha = 0.6f),
                         textAlign = TextAlign.Center
                     )
                 }
@@ -377,7 +378,7 @@ fun OfflineFarmingGuide(
                             }
                             .testTag("tip_card_${tip.id}"),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (isExpanded) Color(0xFF1F2420) else Color(0xFF111412)
+                            containerColor = if (isExpanded) LocalKisaanColors.current.surface else LocalKisaanColors.current.surfaceAlt
                         ),
                         border = BoxDefaults.cardBorder(isExpanded)
                     ) {
@@ -394,7 +395,7 @@ fun OfflineFarmingGuide(
                                     modifier = Modifier
                                         .size(36.dp)
                                         .clip(RoundedCornerShape(8.dp))
-                                        .background(Color(0xFF161B17)),
+                                        .background(LocalKisaanColors.current.surface),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(text = tip.iconEmoji, fontSize = 20.sp)
@@ -407,13 +408,13 @@ fun OfflineFarmingGuide(
                                         text = tip.titleUrdu,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 14.sp,
-                                        color = Color(0xFFD1E8D1)
+                                        color = LocalKisaanColors.current.textHeading
                                     )
                                     Text(
                                         text = tip.titleEnglish,
                                         fontWeight = FontWeight.Normal,
                                         fontSize = 11.sp,
-                                        color = Color(0xFFE1E3E1).copy(alpha = 0.5f)
+                                        color = LocalKisaanColors.current.textPrimary.copy(alpha = 0.5f)
                                     )
                                 }
 
@@ -429,7 +430,7 @@ fun OfflineFarmingGuide(
                                         Icon(
                                             imageVector = if (ttsPlayingId == tip.id) Icons.Default.VolumeUp else Icons.Default.VolumeMute,
                                             contentDescription = "آواز سنیں Speak Out Loud",
-                                            tint = if (ttsPlayingId == tip.id) Color(0xFF10B981) else Color(0xFFD1E8D1).copy(alpha = 0.7f),
+                                            tint = if (ttsPlayingId == tip.id) LocalKisaanColors.current.accent else LocalKisaanColors.current.textHeading.copy(alpha = 0.7f),
                                             modifier = Modifier.size(16.dp)
                                         )
                                     }
@@ -437,7 +438,7 @@ fun OfflineFarmingGuide(
                                     Icon(
                                         imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                                         contentDescription = "تبدیل کریں Expand Details",
-                                        tint = Color(0xFFD1E8D1).copy(alpha = 0.7f),
+                                        tint = LocalKisaanColors.current.textHeading.copy(alpha = 0.7f),
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
@@ -452,16 +453,16 @@ fun OfflineFarmingGuide(
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .background(Color(0xFF0F1210))
+                                        .background(LocalKisaanColors.current.surfaceAlt)
                                         .padding(14.dp)
                                 ) {
-                                    Divider(color = Color(0xFF2C3E2F), modifier = Modifier.padding(bottom = 10.dp))
+                                    Divider(color = LocalKisaanColors.current.border, modifier = Modifier.padding(bottom = 10.dp))
                                     
                                     // Summary explanation in Urdu
                                     Text(
                                         text = tip.contentUrdu,
                                         fontSize = 13.sp,
-                                        color = Color(0xFFD1E8D1),
+                                        color = LocalKisaanColors.current.textHeading,
                                         lineHeight = 20.sp,
                                         modifier = Modifier.padding(bottom = 4.dp)
                                     )
@@ -470,7 +471,7 @@ fun OfflineFarmingGuide(
                                     Text(
                                         text = tip.contentEnglish,
                                         fontSize = 11.sp,
-                                        color = Color(0xFFE1E3E1).copy(alpha = 0.7f),
+                                        color = LocalKisaanColors.current.textPrimary.copy(alpha = 0.7f),
                                         lineHeight = 16.sp,
                                         modifier = Modifier.padding(bottom = 12.dp)
                                     )
@@ -479,7 +480,7 @@ fun OfflineFarmingGuide(
                                         text = "اہم رہنما اصول • Key Guidelines & Steps:",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF10B981),
+                                        color = LocalKisaanColors.current.accent,
                                         modifier = Modifier.padding(bottom = 8.dp)
                                     )
 
@@ -496,7 +497,7 @@ fun OfflineFarmingGuide(
                                             Icon(
                                                 imageVector = Icons.Outlined.CheckCircle,
                                                 contentDescription = "شامل کریں Done",
-                                                tint = Color(0xFF10B981),
+                                                tint = LocalKisaanColors.current.accent,
                                                 modifier = Modifier
                                                     .size(16.dp)
                                                     .padding(top = 2.dp)
@@ -506,14 +507,14 @@ fun OfflineFarmingGuide(
                                                 Text(
                                                     text = stepUrdu,
                                                     fontSize = 12.sp,
-                                                    color = Color(0xFFE1E3E1),
+                                                    color = LocalKisaanColors.current.textPrimary,
                                                     lineHeight = 18.sp
                                                 )
                                                 if (stepEnglish.isNotBlank()) {
                                                     Text(
                                                         text = stepEnglish,
                                                         fontSize = 10.sp,
-                                                        color = Color(0xFFE1E3E1).copy(alpha = 0.6f),
+                                                        color = LocalKisaanColors.current.textPrimary.copy(alpha = 0.6f),
                                                         lineHeight = 14.sp
                                                     )
                                                 }
@@ -536,7 +537,7 @@ object BoxDefaults {
     fun cardBorder(isHighlighted: Boolean = false): androidx.compose.foundation.BorderStroke {
         return androidx.compose.foundation.BorderStroke(
             width = 1.dp,
-            color = if (isHighlighted) Color(0xFF10B981) else Color(0xFF2C3E2F)
+            color = if (isHighlighted) LocalKisaanColors.current.accent else LocalKisaanColors.current.border
         )
     }
 }
