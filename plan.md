@@ -242,16 +242,18 @@ Multi-profile exists (`user_profiles`, `isActive` flag) and is the right call. F
 ### Phase 1 — Make it usable in a field (2–3 weeks)
 *Goal: an illiterate farmer in direct sunlight can get one correct answer unaided.*
 
-- [ ] **P1.1** Light theme, default-on, AAA contrast, manual toggle (D6)
-- [ ] **P1.2** Bundle Noto Nastaliq Urdu; fix line heights; standardise numerals
-- [ ] **P1.3** Rework the voice loop: hold-to-talk, transcript confirmation, noise retry, barge-in, replay
-- [ ] **P1.4** Language picker cut to Tier 1 + Tier 2, honestly labelled (D7)
-- [ ] **P1.5** Rebuild home screen: mic + 6 icon shortcuts
-- [ ] **P1.6** Offline-first answering with clear offline state (F4)
-- [ ] **P1.7** Decompose `MainFarmersScreen.kt` (2,774 lines) into per-screen files — required before anyone else can work on it
-- [ ] **P1.8** "بڑا سائز" text-scale toggle
+- [ ] **P1.1** Light theme, default-on, AAA contrast, manual toggle (D6) — *deferred to its own turn: 332 hardcoded `Color(0x…)` literals across the screens must be migrated to theme tokens first, too large/risky to do without a compiler*
+- [~] **P1.2** Line-heights raised for Urdu; numeral-normalization utility added (`utils/NumeralUtils.kt`); single font-swap point added (`KisaanFontFamily` in `Type.kt`). **Remaining:** bundle/wire the Nastaliq font binary (GitHub raw was proxy-blocked; needs build verification) and apply numeral normalization on rate/number displays
+- [ ] **P1.3** Rework the voice loop: hold-to-talk, transcript confirmation, noise retry, barge-in, replay — *own turn (large)*
+- [x] **P1.4** Picker cut to selectable tiers (Urdu, English, Punjabi, Seraiki) with honest voice notes ("پنجابی متن، اردو آواز"); Sindhi/Pashto/Balochi hidden from the voice picker but kept for text translation (D7 ✓)
+- [ ] **P1.5** Rebuild home screen: mic + 6 icon shortcuts — *own turn (large)*
+- [x] **P1.6** Offline-first answering: `ConnectivityManager` check; offline (or failed-call) answers come from the local verified KB with a clear "انٹرنیٹ نہیں ہے" banner instead of a dead error; `ACCESS_NETWORK_STATE` added (F4 ✓)
+- [ ] **P1.7** Decompose `MainFarmersScreen.kt` (2,774 lines) into per-screen files — *own turn (large refactor)*
+- [x] **P1.8** "بڑا سائز" text-scale toggle: global `LocalDensity` fontScale (works across hardcoded sp), persisted per device, top-bar toggle (✓)
 
-**Exit criteria:** 5 farmers, no coaching, each completes one voice question → heard answer, outdoors, on a sub-PKR-30k phone.
+**Exit criteria:** 5 farmers, no coaching, each completes one voice question → heard answer, outdoors, on a sub-PKR-30k phone. *(Blocked on P1.1 sunlight-readable theme and P1.3/P1.5 voice+home rework.)*
+
+**Build note:** written and reviewed without an Android SDK/Gradle toolchain in this environment; `./gradlew assembleDebug` on a dev machine remains the outstanding verification step.
 
 ### Phase 2 — Make it correct (3–4 weeks)
 *Goal: the advice is right for this farmer, this district, this week.*

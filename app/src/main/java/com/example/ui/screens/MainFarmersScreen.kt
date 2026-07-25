@@ -69,6 +69,7 @@ fun MainFarmersScreen(
     val selectedLanguage by viewModel.selectedLanguage.collectAsStateWithLifecycle()
     val selectedCategory by viewModel.selectedCategory.collectAsStateWithLifecycle()
     val allKnowledge by viewModel.allKnowledge.collectAsStateWithLifecycle()
+    val textScale by viewModel.textScale.collectAsStateWithLifecycle()
 
     var inputQueryText by remember { mutableStateOf("") }
     var showSessionDrawer by remember { mutableStateOf(false) }
@@ -287,6 +288,20 @@ fun MainFarmersScreen(
                         currentLanguage = selectedLanguage,
                         onLanguageSelected = { viewModel.setLanguage(it) }
                     )
+
+                    // Text-size toggle ("بڑا سائز") — enlarges all text for weak eyesight.
+                    val isLargeText = textScale >= 1.3f
+                    IconButton(
+                        onClick = { viewModel.toggleTextScale() },
+                        modifier = Modifier.testTag("text_scale_toggle")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.FormatSize,
+                            contentDescription = "بڑا سائز (Text size)",
+                            tint = if (isLargeText) Color(0xFFF5B041) else Color(0xFF10B981),
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
 
                     // Live (real-time voice) entry point is shown only when the feature is
                     // verified and enabled, so a broken endpoint never surfaces as a dead button.
@@ -792,13 +807,23 @@ fun LanguageMenuButton(
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {
-            LanguageOption.values().forEach { option ->
+            LanguageOption.selectableOptions.forEach { option ->
                 DropdownMenuItem(
                     text = {
-                        Text(
-                            text = option.displayName,
-                            fontWeight = if (option == currentLanguage) FontWeight.Bold else FontWeight.Normal
-                        )
+                        Column {
+                            Text(
+                                text = option.displayName,
+                                fontWeight = if (option == currentLanguage) FontWeight.Bold else FontWeight.Normal
+                            )
+                            // Honestly disclose when the spoken voice differs from the text.
+                            if (option.voiceNote.isNotEmpty()) {
+                                Text(
+                                    text = option.voiceNote,
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                     },
                     onClick = {
                         onLanguageSelected(option)
