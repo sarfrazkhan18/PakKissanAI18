@@ -14,15 +14,7 @@ data class UserProfile(
     val onboardingCompleted: Boolean = false,
     val selectedDialect: String = "Urdu",
     val passwordHash: String = "", // Secure local password storage
-    val isActive: Boolean = false, // Live login session tracker
-
-    // --- My Farm profile (P2.1/P2.2) ---
-    // District matters because sowing dates and pest cycles vary by 3+ weeks across a
-    // province; the AI advisory is conditioned on these fields (see FarmersViewModel).
-    val district: String = "",
-    val cropVariety: String = "",
-    val landArea: String = "",              // free text, e.g. "5" or "2.5"
-    val areaUnit: String = "Acre",          // Acre / Kanal / Murabba
-    val sowingDateMillis: Long = 0L,        // 0 = not set
-    val irrigationSource: String = ""       // نہری / ٹیوب ویل / بارانی
+    val isActive: Boolean = false,  // Live login session tracker
+    val biggestChallenge: String = "",
+    val premiumStatus: String = "Free"
 )

@@ -1,12 +1,14 @@
 package com.example.ui.theme
 
+import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme =
   darkColorScheme(
@@ -29,42 +31,16 @@ private val DarkColorScheme =
     outlineVariant = ElegantDarkBorder
   )
 
-// Real light scheme for outdoor/sunlight readability (the app default). High-contrast
-// green-on-white; text colors meet WCAG AAA against the light surfaces.
-private val LightColorScheme =
-  lightColorScheme(
-    primary = LightKisaanColors.accent,
-    primaryContainer = LightKisaanColors.surfaceAlt,
-    secondary = LightKisaanColors.brandGreen,
-    secondaryContainer = LightKisaanColors.surfaceAlt,
-    tertiary = LightKisaanColors.gold,
-    background = LightKisaanColors.background,
-    surface = LightKisaanColors.surface,
-    surfaceVariant = LightKisaanColors.surfaceAlt,
-    onPrimary = Color.White,
-    onPrimaryContainer = LightKisaanColors.textHeading,
-    onSecondary = Color.White,
-    onSecondaryContainer = LightKisaanColors.textHeading,
-    onBackground = LightKisaanColors.textPrimary,
-    onSurface = LightKisaanColors.textPrimary,
-    onSurfaceVariant = LightKisaanColors.textPrimary.copy(alpha = 0.75f),
-    outline = LightKisaanColors.border,
-    outlineVariant = LightKisaanColors.border
-  )
+private val LightColorScheme = DarkColorScheme // Enforce same elegant dark palette across all view contexts for strict design consistency
 
 @Composable
 fun MyApplicationTheme(
   darkTheme: Boolean = isSystemInDarkTheme(),
-  // Keep the custom agricultural brand colors — never Material You dynamic color.
+  // Disabling dynamic colors to preserve our beautiful custom agricultural brand themes
   dynamicColor: Boolean = false,
   content: @Composable () -> Unit,
 ) {
   val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
-  val kisaanColors = if (darkTheme) DarkKisaanColors else LightKisaanColors
 
-  // Provide the semantic tokens the screens read via LocalKisaanColors.current, so a
-  // theme switch repaints every migrated surface, not just Material components.
-  CompositionLocalProvider(LocalKisaanColors provides kisaanColors) {
-    MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
-  }
+  MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
 }

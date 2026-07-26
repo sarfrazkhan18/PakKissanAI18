@@ -32,6 +32,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -51,7 +52,6 @@ import com.example.R
 import com.example.data.*
 import com.example.viewmodel.*
 import com.example.network.*
-import com.example.ui.theme.LocalKisaanColors
 import com.example.utils.UrduDictionary
 import java.text.SimpleDateFormat
 import java.util.*
@@ -70,16 +70,12 @@ fun MainFarmersScreen(
     val selectedLanguage by viewModel.selectedLanguage.collectAsStateWithLifecycle()
     val selectedCategory by viewModel.selectedCategory.collectAsStateWithLifecycle()
     val allKnowledge by viewModel.allKnowledge.collectAsStateWithLifecycle()
-    val textScale by viewModel.textScale.collectAsStateWithLifecycle()
-    val darkMode by viewModel.darkMode.collectAsStateWithLifecycle()
 
     var inputQueryText by remember { mutableStateOf("") }
     var showSessionDrawer by remember { mutableStateOf(false) }
     var showMarketsDialog by remember { mutableStateOf(false) }
     var showSetupDialog by remember { mutableStateOf(false) }
     var showHelpGuideDialog by remember { mutableStateOf(false) }
-    var showMyFarmScreen by remember { mutableStateOf(false) }
-    var showCalendarScreen by remember { mutableStateOf(false) }
     var activeTTSMessageId by remember { mutableStateOf<String?>(null) }
 
     var showCustomVoiceDialog by remember { mutableStateOf(false) }
@@ -87,16 +83,13 @@ fun MainFarmersScreen(
     var lastClickedVoiceMode by remember { mutableStateOf("send") } // "send" or "input"
     var showLiveSessionDialog by remember { mutableStateOf(false) }
 
-    // Transcript confirmation (P1.3): what STT heard, shown for the farmer to confirm
-    // before we spend an API call — cuts wasted spend and wrong answers from misheard speech.
-    var pendingVoiceText by remember { mutableStateOf("") }
-    var showVoiceConfirmDialog by remember { mutableStateOf(false) }
-
     val liveConnectionState by viewModel.liveConnectionState.collectAsStateWithLifecycle()
     val liveReceivedText by viewModel.liveReceivedText.collectAsStateWithLifecycle()
 
     var isHandsFreeActive by remember { mutableStateOf(false) }
     var triggerAutoMicLaunch by remember { mutableStateOf(false) }
+    var isJustTalkMode by remember { mutableStateOf(true) }
+    var isOfflineMode by remember { mutableStateOf(false) }
     val messageTranslations by viewModel.messageTranslations.collectAsStateWithLifecycle()
     val translationLoadingIds by viewModel.translationLoadingIds.collectAsStateWithLifecycle()
 
@@ -216,7 +209,7 @@ fun MainFarmersScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(LocalKisaanColors.current.background)
+                    .background(Color(0xFF0A0C0B))
                     .statusBarsPadding()
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -227,7 +220,7 @@ fun MainFarmersScreen(
                         text = if (userProfile != null) "خوش آمدید، ${userProfile?.fullName}" else "کِسان دوست",
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp,
-                        color = LocalKisaanColors.current.textHeading
+                        color = Color(0xFFD1E8D1)
                     )
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -249,12 +242,12 @@ fun MainFarmersScreen(
                                 .size(8.dp)
                                 .scale(blinkAlpha)
                                 .clip(CircleShape)
-                                .background(LocalKisaanColors.current.accent)
+                                .background(Color(0xFF10B981))
                         )
                         Text(
                             text = "آپ کا زرعی معاون حاضر ہے",
                             fontSize = 11.sp,
-                            color = LocalKisaanColors.current.textPrimary.copy(alpha = 0.7f),
+                            color = Color(0xFFE1E3E1).copy(alpha = 0.7f),
                             fontWeight = FontWeight.Light
                         )
                     }
@@ -264,6 +257,34 @@ fun MainFarmersScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    // High-Contrast mode switcher button (🎙️ / ⌨️)
+                    IconButton(
+                        onClick = {
+                            isJustTalkMode = !isJustTalkMode
+                            val modeMsg = if (isJustTalkMode) "وائس موڈ آن" else "تلاش موڈ آن"
+                            Toast.makeText(context, modeMsg, Toast.LENGTH_SHORT).show()
+                            textToSpeech?.stop()
+                            speakOutLoud(
+                                textToSpeech = textToSpeech,
+                                text = if (isJustTalkMode) "موبائل سے بات کریں" else "ایکسپلور موڈ",
+                                languageCode = selectedLanguage.audioLocale,
+                                onDone = {}
+                            )
+                        },
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isJustTalkMode) Color(0xFFF4C542) else Color(0xFF1F2420))
+                            .border(1.dp, Color(0xFFF4C542).copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                    ) {
+                        Icon(
+                            imageVector = if (isJustTalkMode) Icons.Default.Mic else Icons.Default.Keyboard,
+                            contentDescription = "Toggle voice / explore mode",
+                            tint = if (isJustTalkMode) Color(0xFF1C1207) else Color(0xFFF4C542),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
                     userProfile?.let { prof ->
                         val cropEmoji = when (prof.primaryCrop) {
                             "Wheat" -> "🌾"
@@ -284,8 +305,8 @@ fun MainFarmersScreen(
                                 modifier = Modifier
                                     .size(34.dp)
                                     .clip(CircleShape)
-                                    .background(LocalKisaanColors.current.accent.copy(alpha = 0.2f))
-                                    .border(1.dp, LocalKisaanColors.current.accent, CircleShape),
+                                    .background(Color(0xFF10B981).copy(alpha = 0.2f))
+                                    .border(1.dp, Color(0xFF10B981), CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(cropEmoji, fontSize = 16.sp)
@@ -298,36 +319,6 @@ fun MainFarmersScreen(
                         onLanguageSelected = { viewModel.setLanguage(it) }
                     )
 
-                    // Text-size toggle ("بڑا سائز") — enlarges all text for weak eyesight.
-                    val isLargeText = textScale >= 1.3f
-                    IconButton(
-                        onClick = { viewModel.toggleTextScale() },
-                        modifier = Modifier.testTag("text_scale_toggle")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.FormatSize,
-                            contentDescription = "بڑا سائز (Text size)",
-                            tint = if (isLargeText) LocalKisaanColors.current.gold else LocalKisaanColors.current.accent,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-
-                    // Light/Dark theme toggle (☀️/🌙). Default is light for sunlight readability.
-                    IconButton(
-                        onClick = { viewModel.toggleDarkMode() },
-                        modifier = Modifier.testTag("theme_toggle")
-                    ) {
-                        Icon(
-                            imageVector = if (darkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
-                            contentDescription = if (darkMode) "دن کا موڈ (Light mode)" else "رات کا موڈ (Dark mode)",
-                            tint = LocalKisaanColors.current.accent,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-
-                    // Live (real-time voice) entry point is shown only when the feature is
-                    // verified and enabled, so a broken endpoint never surfaces as a dead button.
-                    if (com.example.BuildConfig.LIVE_API_ENABLED) {
                     IconButton(
                         onClick = { showLiveSessionDialog = true },
                         modifier = Modifier.testTag("live_translation_button")
@@ -346,7 +337,7 @@ fun MainFarmersScreen(
                             Icon(
                                 imageVector = Icons.Filled.RecordVoiceOver,
                                 contentDescription = "Live Voice Translation Room",
-                                tint = LocalKisaanColors.current.accent,
+                                tint = Color(0xFF10B981),
                                 modifier = Modifier.size(24.dp).scale(livePulseScale)
                             )
                             // Small red "live" badge indicator
@@ -358,20 +349,19 @@ fun MainFarmersScreen(
                             )
                         }
                     }
-                    } // end LIVE_API_ENABLED gate
 
                     Box(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)
-                            .background(LocalKisaanColors.current.surface)
-                            .border(BorderStroke(1.dp, LocalKisaanColors.current.border), CircleShape),
+                            .background(Color(0xFF1F2420))
+                            .border(BorderStroke(1.dp, Color(0xFF3E4A40)), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Person,
                             contentDescription = "User Profile",
-                            tint = LocalKisaanColors.current.textPrimary,
+                            tint = Color(0xFFE1E3E1),
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -393,38 +383,31 @@ fun MainFarmersScreen(
                 )
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                if (showMyFarmScreen) {
-                    MyFarmScreen(
-                        profile = userProfile,
-                        onSave = { d, c, v, a, u, s, irr ->
-                            viewModel.saveFarmDetails(d, c, v, a, u, s, irr)
-                            Toast.makeText(context, "میرا کھیت کی معلومات محفوظ ہو گئیں", Toast.LENGTH_SHORT).show()
-                        },
-                        onClose = { showMyFarmScreen = false },
-                        modifier = Modifier.weight(1f)
-                    )
-                } else if (showCalendarScreen) {
-                    CropCalendarScreen(
-                        profile = userProfile,
-                        onOpenMyFarm = {
-                            showCalendarScreen = false
-                            showMyFarmScreen = true
-                        },
-                        onClose = { showCalendarScreen = false },
-                        modifier = Modifier.weight(1f)
-                    )
-                } else if (showHelpGuideDialog) {
+                if (showHelpGuideDialog) {
                     OfflineFarmingGuide(
                         selectedLanguage = selectedLanguage,
                         onClose = { showHelpGuideDialog = false },
                         knowledgeList = allKnowledge,
                         modifier = Modifier.weight(1f)
                     )
+                } else if (isJustTalkMode) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        JustTalkScreen(
+                            context = context,
+                            selectedLanguage = selectedLanguage,
+                            textToSpeech = textToSpeech,
+                            isTtsInitialized = isTtsInitialized,
+                            isOfflineMode = isOfflineMode,
+                            onOfflineModeToggle = { isOfflineMode = it },
+                            isHandsFreeActive = isHandsFreeActive,
+                            onHandsFreeToggle = { isHandsFreeActive = it },
+                            viewModel = viewModel,
+                            messages = messages,
+                            uiState = uiState,
+                            onExploreClick = { isJustTalkMode = false }
+                        )
+                    }
                 } else {
-                    // Real "this week" crop-stage card (P2.6) — shows only once the farmer has
-                    // set crop + sowing date in My Farm. Replaces the old fabricated advice card.
-                    CropStageCard(profile = userProfile, onOpen = { showCalendarScreen = true })
-
                     // Category Filter Tabs
                     CategoryFilterBar(
                         selectedCategory = selectedCategory,
@@ -499,8 +482,7 @@ fun MainFarmersScreen(
                                         languageCode = selectedLanguage.audioLocale,
                                         onDone = {}
                                     )
-                                },
-                                onFeedback = { value -> viewModel.setMessageFeedback(msg.id, value) }
+                                }
                             )
                         }
                     }
@@ -553,7 +535,7 @@ fun MainFarmersScreen(
                 val activeNav = when {
                     showSessionDrawer -> "History"
                     showMarketsDialog -> "Markets"
-                    showMyFarmScreen -> "Farm"
+                    showSetupDialog -> "Setup"
                     showHelpGuideDialog -> "Help"
                     else -> "Home"
                 }
@@ -561,7 +543,7 @@ fun MainFarmersScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(LocalKisaanColors.current.surface)
+                        .background(Color(0xFF1F2420))
                         .padding(vertical = 4.dp)
                         .navigationBarsPadding(),
                     horizontalArrangement = Arrangement.SpaceAround,
@@ -578,8 +560,6 @@ fun MainFarmersScreen(
                             showMarketsDialog = false
                             showSetupDialog = false
                             showHelpGuideDialog = false
-                            showMyFarmScreen = false
-                            showCalendarScreen = false
                         }
                     )
 
@@ -592,8 +572,6 @@ fun MainFarmersScreen(
                             showSessionDrawer = false
                             showMarketsDialog = false
                             showSetupDialog = false
-                            showMyFarmScreen = false
-                            showCalendarScreen = false
                         }
                     )
 
@@ -606,25 +584,29 @@ fun MainFarmersScreen(
                             showMarketsDialog = false
                             showSetupDialog = false
                             showHelpGuideDialog = false
-                            showMyFarmScreen = false
-                            showCalendarScreen = false
                         }
                     )
 
-                    // Mandi-rate tab hidden for launch: its rates are hardcoded placeholders,
-                    // and showing fabricated prices as real is a trust/liability risk. Re-enable
-                    // once real, sourced rates land (plan P3.1).
+                    NavTabItem(
+                        icon = Icons.Default.Assessment,
+                        labelUrdu = "منڈی ریٹ",
+                        isActive = activeNav == "Markets",
+                        onClick = {
+                            showMarketsDialog = true
+                            showSessionDrawer = false
+                            showSetupDialog = false
+                            showHelpGuideDialog = false
+                        }
+                    )
 
                     NavTabItem(
-                        icon = Icons.Default.Agriculture,
-                        labelUrdu = "میرا کھیت",
-                        isActive = activeNav == "Farm",
+                        icon = Icons.Default.Settings,
+                        labelUrdu = "سیٹنگز",
+                        isActive = activeNav == "Setup",
                         onClick = {
-                            showMyFarmScreen = true
-                            showCalendarScreen = false
+                            showSetupDialog = true
                             showSessionDrawer = false
                             showMarketsDialog = false
-                            showSetupDialog = false
                             showHelpGuideDialog = false
                         }
                     )
@@ -640,7 +622,7 @@ fun MainFarmersScreen(
                             text = "فصلوں کی تازہ ترین منڈی ریٹ • Market Rates",
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
-                            color = LocalKisaanColors.current.textHeading
+                            color = Color(0xFFD1E8D1)
                         )
                     },
                     text = {
@@ -648,7 +630,7 @@ fun MainFarmersScreen(
                             Text(
                                 text = "پنجاب اور سندھ کی غلہ منڈیاں (rates per 40 Kg):",
                                 fontSize = 12.sp,
-                                color = LocalKisaanColors.current.textPrimary.copy(alpha = 0.7f),
+                                color = Color(0xFFE1E3E1).copy(alpha = 0.7f),
                                 modifier = Modifier.padding(bottom = 8.dp)
                             )
                             listOf(
@@ -663,19 +645,19 @@ fun MainFarmersScreen(
                                     modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Text(text = crop, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = LocalKisaanColors.current.textPrimary)
-                                    Text(text = price, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = LocalKisaanColors.current.textHeading)
+                                    Text(text = crop, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color(0xFFE1E3E1))
+                                    Text(text = price, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFFD1E8D1))
                                 }
                             }
                         }
                     },
                     confirmButton = {
                         TextButton(onClick = { showMarketsDialog = false }) {
-                            Text(text = "ٹھیک ہے (OK)", color = LocalKisaanColors.current.textHeading)
+                            Text(text = "ٹھیک ہے (OK)", color = Color(0xFFD1E8D1))
                         }
                     },
-                    containerColor = LocalKisaanColors.current.surface,
-                    textContentColor = LocalKisaanColors.current.textPrimary
+                    containerColor = Color(0xFF1F2420),
+                    textContentColor = Color(0xFFE1E3E1)
                 )
             }
 
@@ -689,7 +671,7 @@ fun MainFarmersScreen(
                             text = "معاون کی ترتیبات • Assistant Setup",
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
-                            color = LocalKisaanColors.current.textHeading
+                            color = Color(0xFFD1E8D1)
                         )
                     },
                     text = {
@@ -697,21 +679,21 @@ fun MainFarmersScreen(
                             Text(
                                 text = "آواز کی رفتار اور اسسٹنٹ ماڈل سیٹ اپ کریں:",
                                 fontSize = 12.sp,
-                                color = LocalKisaanColors.current.textPrimary.copy(alpha = 0.7f)
+                                color = Color(0xFFE1E3E1).copy(alpha = 0.7f)
                             )
 
                             Text(
                                 text = "آواز کی رفتار (Speech Speed): ${(selectedModelSpeed * 2.0).toString().take(4)}x",
                                 fontSize = 13.sp,
-                                color = LocalKisaanColors.current.textPrimary
+                                color = Color(0xFFE1E3E1)
                             )
 
                             Slider(
                                 value = selectedModelSpeed,
                                 onValueChange = { selectedModelSpeed = it },
                                 colors = SliderDefaults.colors(
-                                    thumbColor = LocalKisaanColors.current.textHeading,
-                                    activeTrackColor = LocalKisaanColors.current.accent
+                                    thumbColor = Color(0xFFD1E8D1),
+                                    activeTrackColor = Color(0xFF10B981)
                                 )
                             )
 
@@ -720,13 +702,13 @@ fun MainFarmersScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(text = UrduDictionary.VOICE_ASSISTANT_ACTIVATE, fontSize = 13.sp, color = LocalKisaanColors.current.textPrimary)
+                                Text(text = UrduDictionary.VOICE_ASSISTANT_ACTIVATE, fontSize = 13.sp, color = Color(0xFFE1E3E1))
                                 Switch(
                                     checked = true,
                                     onCheckedChange = {},
                                     colors = SwitchDefaults.colors(
-                                        checkedThumbColor = LocalKisaanColors.current.background,
-                                        checkedTrackColor = LocalKisaanColors.current.textHeading
+                                        checkedThumbColor = Color(0xFF0A0C0B),
+                                        checkedTrackColor = Color(0xFFD1E8D1)
                                     )
                                 )
                             }
@@ -735,18 +717,18 @@ fun MainFarmersScreen(
                             Text(
                                 text = "صرف مستند زرعی اور موسماتی ڈیٹا کے لیے Gemini 3.5 Flash انجن استعمال کیا جا رہا ہے۔",
                                 fontSize = 10.sp,
-                                color = LocalKisaanColors.current.textPrimary.copy(alpha = 0.5f),
+                                color = Color(0xFFE1E3E1).copy(alpha = 0.5f),
                                 lineHeight = 14.sp
                             )
                         }
                     },
                     confirmButton = {
                         TextButton(onClick = { showSetupDialog = false }) {
-                            Text(text = "محفوظ کریں (Save)", color = LocalKisaanColors.current.textHeading)
+                            Text(text = "محفوظ کریں (Save)", color = Color(0xFFD1E8D1))
                         }
                     },
-                    containerColor = LocalKisaanColors.current.surface,
-                    textContentColor = LocalKisaanColors.current.textPrimary
+                    containerColor = Color(0xFF1F2420),
+                    textContentColor = Color(0xFFE1E3E1)
                 )
             }
 
@@ -775,55 +757,14 @@ fun MainFarmersScreen(
             language = selectedLanguage,
             onSpeechResult = { text ->
                 if (text.isNotBlank()) {
-                    if (isHandsFreeActive) {
-                        // Hands-free keeps its uninterrupted listen→answer→listen loop.
-                        viewModel.sendMessage(text, determineCategory(text))
-                    } else {
-                        // Manual mode: confirm the transcript before sending.
-                        pendingVoiceText = text
-                        showVoiceConfirmDialog = true
-                    }
-                }
-                showCustomVoiceDialog = false
-            },
-            onDismiss = {
-                showCustomVoiceDialog = false
-            }
-        )
-    }
-
-    if (showVoiceConfirmDialog) {
-        VoiceConfirmDialog(
-            transcript = pendingVoiceText,
-            onConfirm = {
-                val text = pendingVoiceText
-                showVoiceConfirmDialog = false
-                if (text.isNotBlank()) {
+                    inputQueryText = text
                     viewModel.sendMessage(text, determineCategory(text))
+                    inputQueryText = ""
                 }
-                pendingVoiceText = ""
-            },
-            onRetry = {
-                showVoiceConfirmDialog = false
-                pendingVoiceText = ""
-                showCustomVoiceDialog = true // listen again
-            },
-            onEdit = {
-                inputQueryText = pendingVoiceText // let them fix it in the text field
-                showVoiceConfirmDialog = false
-                pendingVoiceText = ""
-            },
-            onReplay = {
-                speakOutLoud(
-                    textToSpeech = textToSpeech,
-                    text = pendingVoiceText,
-                    languageCode = selectedLanguage.audioLocale,
-                    onDone = {}
-                )
+                showCustomVoiceDialog = false
             },
             onDismiss = {
-                showVoiceConfirmDialog = false
-                pendingVoiceText = ""
+                showCustomVoiceDialog = false
             }
         )
     }
@@ -895,23 +836,13 @@ fun LanguageMenuButton(
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {
-            LanguageOption.selectableOptions.forEach { option ->
+            LanguageOption.values().forEach { option ->
                 DropdownMenuItem(
                     text = {
-                        Column {
-                            Text(
-                                text = option.displayName,
-                                fontWeight = if (option == currentLanguage) FontWeight.Bold else FontWeight.Normal
-                            )
-                            // Honestly disclose when the spoken voice differs from the text.
-                            if (option.voiceNote.isNotEmpty()) {
-                                Text(
-                                    text = option.voiceNote,
-                                    fontSize = 10.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
+                        Text(
+                            text = option.displayName,
+                            fontWeight = if (option == currentLanguage) FontWeight.Bold else FontWeight.Normal
+                        )
                     },
                     onClick = {
                         onLanguageSelected(option)
@@ -981,8 +912,7 @@ fun ChatMessageBubble(
     translationsMap: Map<String, String>,
     loadingIds: Set<String>,
     onTranslateSelected: (LanguageOption) -> Unit,
-    speakTranslation: (String) -> Unit,
-    onFeedback: (Int) -> Unit = {}
+    speakTranslation: (String) -> Unit
 ) {
     val speechDirection = if (isUser) TextDirection.Rtl else TextDirection.Ltr
     val themeCardColor = if (isUser) {
@@ -1087,12 +1017,12 @@ fun ChatMessageBubble(
                         }
                         
                         val urgencyText = if (isHighUrgency) "فوری توجہ" else "عمومی مشورہ"
-                        val urgencyColor = if (isHighUrgency) Color(0xFFEF4444) else LocalKisaanColors.current.accent
+                        val urgencyColor = if (isHighUrgency) Color(0xFFEF4444) else Color(0xFF10B981)
 
                         Card(
-                            colors = CardDefaults.cardColors(containerColor = LocalKisaanColors.current.surfaceAlt),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F1210)),
                             shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.dp, LocalKisaanColors.current.surface),
+                            border = BorderStroke(1.dp, Color(0xFF223628)),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(bottom = 10.dp)
@@ -1107,13 +1037,13 @@ fun ChatMessageBubble(
                                         modifier = Modifier
                                             .size(20.dp)
                                             .clip(CircleShape)
-                                            .background(LocalKisaanColors.current.accent.copy(alpha = 0.15f)),
+                                            .background(Color(0xFF10B981).copy(alpha = 0.15f)),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.AutoAwesome,
                                             contentDescription = null,
-                                            tint = LocalKisaanColors.current.accent,
+                                            tint = Color(0xFF10B981),
                                             modifier = Modifier.size(11.dp)
                                         )
                                     }
@@ -1122,33 +1052,28 @@ fun ChatMessageBubble(
                                         text = "کِسان دوست نظامِ تجزیہ",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = LocalKisaanColors.current.textHeading
+                                        color = Color(0xFFD1E8D1)
                                     )
                                     
                                     Spacer(modifier = Modifier.weight(1f))
                                     
-                                    // Honest trust signal (P2.5): green "verified" only when the
-                                    // answer was grounded in the local verified knowledge base;
-                                    // otherwise blue "AI advice" so the farmer knows to double-check.
-                                    val verified = message.usedVerifiedSource
-                                    val badgeColor = if (verified) LocalKisaanColors.current.accent else Color(0xFF3B82F6)
                                     Box(
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(4.dp))
-                                            .background(badgeColor.copy(alpha = 0.15f))
+                                            .background(Color(0xFF10B981).copy(alpha = 0.15f))
                                             .padding(horizontal = 5.dp, vertical = 2.dp)
                                     ) {
                                         Text(
-                                            text = if (verified) "🟢 تصدیق شدہ" else "🔵 AI مشورہ",
+                                            text = "تصدیق شدہ",
                                             fontSize = 8.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = badgeColor
+                                            color = Color(0xFF10B981)
                                         )
                                     }
                                 }
                                 
                                 HorizontalDivider(
-                                    color = LocalKisaanColors.current.surface, 
+                                    color = Color(0xFF223628), 
                                     thickness = 0.5.dp, 
                                     modifier = Modifier.padding(vertical = 6.dp)
                                 )
@@ -1162,13 +1087,13 @@ fun ChatMessageBubble(
                                             text = "مضمون / فصل",
                                             fontSize = 10.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = LocalKisaanColors.current.textHeading.copy(alpha = 0.5f)
+                                            color = Color(0xFFD1E8D1).copy(alpha = 0.5f)
                                         )
                                         Text(
                                             text = parsedCrop,
                                             fontSize = 11.5.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = LocalKisaanColors.current.textPrimary,
+                                            color = Color(0xFFE1E3E1),
                                             modifier = Modifier.padding(top = 1.dp)
                                         )
                                     }
@@ -1178,7 +1103,7 @@ fun ChatMessageBubble(
                                             text = "اہمیت کا درجہ",
                                             fontSize = 10.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = LocalKisaanColors.current.textHeading.copy(alpha = 0.5f)
+                                            color = Color(0xFFD1E8D1).copy(alpha = 0.5f)
                                         )
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
@@ -1205,9 +1130,7 @@ fun ChatMessageBubble(
                     }
 
                     Text(
-                        // Normalise Eastern digits to Western for consistent, unambiguous
-                        // numbers (rates, doses, dates) — see NumeralUtils (P1.2).
-                        text = com.example.utils.NumeralUtils.toWesternDigits(message.text),
+                        text = message.text,
                         fontSize = 15.sp,
                         lineHeight = 22.sp,
                         color = if (isUser) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
@@ -1216,88 +1139,6 @@ fun ChatMessageBubble(
                             textDirection = TextDirection.ContentOrLtr
                         )
                     )
-
-                    // --- Safety layer (P2.5): only on advisory (model) answers ---
-                    if (!isUser) {
-                        val safetyCtx = LocalContext.current
-
-                        // Pesticide / chemical guardrail — a wrong dose can destroy a crop, so any
-                        // answer touching sprays or doses carries a highlighted "verify first" caution.
-                        val mentionsChemical = remember(message.text) {
-                            val t = message.text.lowercase()
-                            listOf(
-                                "زہر", "سپرے", "کیڑے مار", "دوا", "مقدار", "spray", "pesticide",
-                                "insecticide", "fungicide", "herbicide", "dose", "ملی لیٹر", "chemical"
-                            ).any { t.contains(it) }
-                        }
-                        if (mentionsChemical) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 8.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(Color(0xFFF5B041).copy(alpha = 0.15f))
-                                    .border(BorderStroke(1.dp, Color(0xFFF5B041).copy(alpha = 0.5f)), RoundedCornerShape(10.dp))
-                                    .padding(10.dp),
-                                verticalAlignment = Alignment.Top,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFF5B041), modifier = Modifier.size(16.dp))
-                                Text(
-                                    text = "⚠️ سپرے یا زہر استعمال کرنے سے پہلے مقامی زرعی افسر یا ڈیلر سے تصدیق ضرور کریں، اور مقدار احتیاط سے ناپیں۔",
-                                    fontSize = 11.sp,
-                                    lineHeight = 16.sp,
-                                    color = LocalKisaanColors.current.textPrimary
-                                )
-                            }
-                        }
-
-                        // Escalate to a human + rate the answer.
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(LocalKisaanColors.current.accent.copy(alpha = 0.12f))
-                                    .clickable {
-                                        // Punjab Agriculture Helpline (toll-free, 8am-8pm).
-                                        runCatching {
-                                            safetyCtx.startActivity(
-                                                Intent(Intent.ACTION_DIAL, android.net.Uri.parse("tel:080015000"))
-                                            )
-                                        }
-                                    }
-                                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Icon(Icons.Default.Call, contentDescription = null, tint = LocalKisaanColors.current.accent, modifier = Modifier.size(14.dp))
-                                Text("ماہر سے پوچھیں", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = LocalKisaanColors.current.accent)
-                            }
-
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                                IconButton(onClick = { onFeedback(if (message.feedback == 1) 0 else 1) }, modifier = Modifier.size(30.dp)) {
-                                    Icon(
-                                        imageVector = Icons.Default.ThumbUp,
-                                        contentDescription = "مفید",
-                                        tint = if (message.feedback == 1) LocalKisaanColors.current.accent else LocalKisaanColors.current.textPrimary.copy(alpha = 0.4f),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                                IconButton(onClick = { onFeedback(if (message.feedback == -1) 0 else -1) }, modifier = Modifier.size(30.dp)) {
-                                    Icon(
-                                        imageVector = Icons.Default.ThumbDown,
-                                        contentDescription = "غیر مفید",
-                                        tint = if (message.feedback == -1) Color(0xFFEF4444) else LocalKisaanColors.current.textPrimary.copy(alpha = 0.4f),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
 
                     Spacer(modifier = Modifier.height(4.dp))
 
@@ -1379,7 +1220,7 @@ fun ChatMessageBubble(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(top = 8.dp)
-                                    .background(LocalKisaanColors.current.surfaceAlt, RoundedCornerShape(8.dp))
+                                    .background(Color(0xFF0F1210), RoundedCornerShape(8.dp))
                                     .padding(8.dp)
                                 ) {
                                 Row(
@@ -1391,7 +1232,7 @@ fun ChatMessageBubble(
                                         text = "ترجمہ شدہ مشورہ",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = LocalKisaanColors.current.accent
+                                        color = Color(0xFF10B981)
                                     )
                                     IconButton(
                                         onClick = { speakTranslation(translatedText) },
@@ -1400,7 +1241,7 @@ fun ChatMessageBubble(
                                         Icon(
                                             imageVector = Icons.Default.VolumeUp,
                                             contentDescription = "Speak translation",
-                                            tint = LocalKisaanColors.current.accent,
+                                            tint = Color(0xFF10B981),
                                             modifier = Modifier.size(12.dp)
                                         )
                                     }
@@ -1410,7 +1251,7 @@ fun ChatMessageBubble(
                                     text = translatedText,
                                     fontSize = 13.sp,
                                     lineHeight = 18.sp,
-                                    color = LocalKisaanColors.current.textHeading,
+                                    color = Color(0xFFD1E8D1),
                                     textAlign = TextAlign.Right,
                                     modifier = Modifier.fillMaxWidth(),
                                     style = LocalTextStyle.current.copy(
@@ -1435,6 +1276,280 @@ fun ChatMessageBubble(
         }
     }
 }
+
+// Farm advice empty state pre-filled helper cards
+@Composable
+fun EmptyStateGuide(
+    selectedLanguage: LanguageOption,
+    onTopicSelected: (String, String) -> Unit,
+    onMicClick: () -> Unit,
+    isHandsFreeActive: Boolean,
+    onHandsFreeToggle: (Boolean) -> Unit
+) {
+    val guides = listOf(
+        GuideItem("فصلوں کی دیکھ بھال", "گندم کی اچھی پیداوار حاصل کرنے کے لیے کھاد کا صحیح شیڈول کیا ہے؟", "Crops", Icons.Outlined.Spa),
+        GuideItem("بیماریاں اور کیڑے", "کپاس کے پتوں پر سفید مکھی کے حملے کا دیسی اور سستا علاج بتائیں۔", "Pest", Icons.Outlined.BugReport),
+        GuideItem("موسم اور پانی", "کیا اس مہینے بارانِ رحمت سے نہری پانی کے استعمال میں کمی کرنی چاہیے؟", "Weather", Icons.Outlined.WbSunny),
+        GuideItem("مال مویشی", "بھینس کا دودھ بڑھانے کے لیے کونسا دیسی ونڈا بہترین اور سستا ہے؟", "Livestock", Icons.Outlined.Pets)
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        // Aesthetic concentric decorative rings with centralized mic and bilingual speak prompt
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp)
+                .height(240.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            // Elegant Concentric Web Mock Circles
+            Box(
+                modifier = Modifier
+                    .size(230.dp)
+                    .border(BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.15f)), CircleShape)
+            )
+            Box(
+                modifier = Modifier
+                    .size(160.dp)
+                    .border(BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.10f)), CircleShape)
+            )
+            Box(
+                modifier = Modifier
+                    .size(110.dp)
+                    .border(BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.05f)), CircleShape)
+            )
+
+            // Inner focus content
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = "موبائل سے بات کریں",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 19.sp,
+                    color = Color(0xFFE1E3E1),
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = "زراعت اور فصلوں کا کوئی بھی سوال پوچھیے",
+                    fontSize = 12.sp,
+                    color = Color(0xFFD1E8D1).copy(alpha = 0.6f),
+                    textAlign = TextAlign.Center,
+                    fontWeight = FontWeight.Light,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // Elegant physical dark circle mic button with customized drop shadowglow
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .shadow(
+                            elevation = 24.dp,
+                            shape = CircleShape,
+                            spotColor = Color(0xFFD1E8D1).copy(alpha = 0.35f)
+                        )
+                        .background(Color(0xFFD1E8D1), CircleShape)
+                        .clickable(onClick = onMicClick),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Mic,
+                        contentDescription = "Speak voice query",
+                        tint = Color(0xFF0A0C0B),
+                        modifier = Modifier.size(34.dp)
+                    )
+                }
+
+                // Decorative wave equalizer bars at the bottom
+                Row(
+                    modifier = Modifier.padding(top = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(modifier = Modifier.size(width = 3.dp, height = 12.dp).background(Color(0xFF10B981).copy(alpha = 0.4f), RoundedCornerShape(2.dp)))
+                    Box(modifier = Modifier.size(width = 3.dp, height = 20.dp).background(Color(0xFF10B981).copy(alpha = 0.6f), RoundedCornerShape(2.dp)))
+                    Box(modifier = Modifier.size(width = 3.dp, height = 14.dp).background(Color(0xFF10B981).copy(alpha = 0.4f), RoundedCornerShape(2.dp)))
+                }
+            }
+        }
+
+        // State-driven hands-free toggler on the empty state guide
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp, horizontal = 12.dp)
+                .background(Color(0xFF1F2420), RoundedCornerShape(16.dp))
+                .border(BorderStroke(1.dp, if (isHandsFreeActive) Color(0xFF10B981) else Color(0xFF3E4A40)), RoundedCornerShape(16.dp))
+                .clickable { onHandsFreeToggle(!isHandsFreeActive) }
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.VolumeUp,
+                    contentDescription = null,
+                    tint = if (isHandsFreeActive) Color(0xFF10B981) else Color(0xFFD1E8D1).copy(alpha = 0.5f),
+                    modifier = Modifier.size(20.dp)
+                )
+                Column {
+                    Text(
+                        text = UrduDictionary.VOICE_AUTOMATIC_MODE,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFE1E3E1)
+                    )
+                    Text(
+                        text = "معاون خود بخود جواب سنائے گا اور آپ کا سوال سنے گا",
+                        fontSize = 10.sp,
+                        color = Color(0xFFE1E3E1).copy(alpha = 0.5f)
+                    )
+                }
+            }
+            Switch(
+                checked = isHandsFreeActive,
+                onCheckedChange = onHandsFreeToggle,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color(0xFF0A0C0B),
+                    checkedTrackColor = Color(0xFF10B981),
+                    uncheckedThumbColor = Color(0xFFD1E8D1).copy(alpha = 0.5f),
+                    uncheckedTrackColor = Color(0xFF1F2420)
+                ),
+                modifier = Modifier.scale(0.85f).testTag("handsfree_welcome_switch")
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Section with "Latest Advice" from Design Guidelines:
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp)
+                .border(BorderStroke(1.dp, Color(0xFF3E4A40)), RoundedCornerShape(24.dp)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1F2420)),
+            shape = RoundedCornerShape(24.dp)
+        ) {
+            Column(modifier = Modifier.padding(18.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "LATEST ADVICE",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFD1E8D1).copy(alpha = 0.6f)
+                    )
+                    Text(
+                        text = "2 mins ago",
+                        fontSize = 9.sp,
+                        color = Color(0xFFD1E8D1).copy(alpha = 0.4f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = "گندم کی کٹائی کے لیے موسم موزوں ہے۔ اگلے تین دن تک بارش کا کوئی امکان نہیں ہے۔",
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                    color = Color(0xFFE1E3E1),
+                    textAlign = TextAlign.Right,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 10.dp)
+                        .clickable {
+                            onTopicSelected("گندم کی اچھی پیداوار حاصل کرنے کے لیے کھاد کا صحیح شیڈول کیا ہے؟", "Crops")
+                        },
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Details",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFD1E8D1)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = Icons.Default.ArrowForward,
+                        contentDescription = null,
+                        tint = Color(0xFFD1E8D1),
+                        modifier = Modifier.size(12.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Grid of interactive cards
+        guides.forEach { guide ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+                    .clickable { onTopicSelected(guide.prompt, guide.category) },
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1F2420)),
+                border = BorderStroke(0.5.dp, Color(0xFF3E4A40)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = guide.icon,
+                        contentDescription = null,
+                        tint = Color(0xFFD1E8D1),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = guide.title,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = Color(0xFFE1E3E1)
+                        )
+                        Text(
+                            text = guide.prompt,
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                            color = Color(0xFFE1E3E1).copy(alpha = 0.6f)
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.Default.ArrowForward,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = Color(0xFFD1E8D1).copy(alpha = 0.5f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+data class GuideItem(val title: String, val prompt: String, val category: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
 
 // Bottom control board with big pulsing voice capturing button
 @Composable
@@ -1501,7 +1616,7 @@ fun BottomActionPanel(
                     Icon(
                         imageVector = Icons.Default.VolumeUp,
                         contentDescription = null,
-                        tint = if (isHandsFreeActive) LocalKisaanColors.current.accent else LocalKisaanColors.current.textPrimary.copy(alpha = 0.4f),
+                        tint = if (isHandsFreeActive) Color(0xFF10B981) else Color(0xFFE1E3E1).copy(alpha = 0.4f),
                         modifier = Modifier
                             .size(16.dp)
                             .scale(if (isHandsFreeActive) pulseAlpha else 1f)
@@ -1511,7 +1626,7 @@ fun BottomActionPanel(
                         text = if (isHandsFreeActive) "ہینڈز فری موڈ فعال ہے • Hands-Free ON" else "ہینڈز فری گفتگو • Hands-Free Mode",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (isHandsFreeActive) LocalKisaanColors.current.accent else LocalKisaanColors.current.textPrimary.copy(alpha = 0.5f)
+                        color = if (isHandsFreeActive) Color(0xFF10B981) else Color(0xFFE1E3E1).copy(alpha = 0.5f)
                     )
                 }
 
@@ -1519,10 +1634,10 @@ fun BottomActionPanel(
                     checked = isHandsFreeActive,
                     onCheckedChange = onHandsFreeToggle,
                     colors = SwitchDefaults.colors(
-                        checkedThumbColor = LocalKisaanColors.current.background,
-                        checkedTrackColor = LocalKisaanColors.current.accent,
-                        uncheckedThumbColor = LocalKisaanColors.current.textHeading.copy(alpha = 0.5f),
-                        uncheckedTrackColor = LocalKisaanColors.current.surface
+                        checkedThumbColor = Color(0xFF0A0C0B),
+                        checkedTrackColor = Color(0xFF10B981),
+                        uncheckedThumbColor = Color(0xFFD1E8D1).copy(alpha = 0.5f),
+                        uncheckedTrackColor = Color(0xFF1F2420)
                     ),
                     modifier = Modifier.scale(0.80f).testTag("handsfree_toggle_switch")
                 )
@@ -1546,9 +1661,9 @@ fun BottomActionPanel(
                 }
                 
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = LocalKisaanColors.current.surfaceAlt),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF131A15)),
                     shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, LocalKisaanColors.current.surface),
+                    border = BorderStroke(1.dp, Color(0xFF1F2E22)),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 10.dp)
@@ -1565,13 +1680,13 @@ fun BottomActionPanel(
                             CircularProgressIndicator(
                                 modifier = Modifier.size(16.dp),
                                 strokeWidth = 2.dp,
-                                color = LocalKisaanColors.current.accent
+                                color = Color(0xFF10B981)
                             )
                             Text(
                                 text = "کِسان دوست اسسٹنٹ تجزیہ",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = LocalKisaanColors.current.accent
+                                color = Color(0xFF10B981)
                             )
                         }
                         
@@ -1581,7 +1696,7 @@ fun BottomActionPanel(
                             text = stepTextUrdu,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium,
-                            color = LocalKisaanColors.current.textPrimary,
+                            color = Color(0xFFE1E3E1),
                             style = LocalTextStyle.current.copy(textDirection = TextDirection.Rtl)
                         )
                         
@@ -1597,7 +1712,7 @@ fun BottomActionPanel(
                                         .weight(1f)
                                         .height(3.dp)
                                         .clip(RoundedCornerShape(1.5.dp))
-                                        .background(if (isPassed) LocalKisaanColors.current.accent else LocalKisaanColors.current.surface)
+                                        .background(if (isPassed) Color(0xFF10B981) else Color(0xFF223628))
                                 )
                             }
                         }
@@ -1806,97 +1921,6 @@ fun SessionDrawerOverlay(
     }
 }
 
-// Transcript confirmation shown after voice input in manual mode (P1.3). Big ✅/🔁 so a
-// farmer can confirm the app heard him right — or listen again — before an answer is fetched.
-@Composable
-fun VoiceConfirmDialog(
-    transcript: String,
-    onConfirm: () -> Unit,
-    onRetry: () -> Unit,
-    onEdit: () -> Unit,
-    onReplay: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(24.dp))
-                .background(LocalKisaanColors.current.surface)
-                .border(BorderStroke(1.dp, LocalKisaanColors.current.border), RoundedCornerShape(24.dp))
-                .padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Text(
-                text = "آپ نے پوچھا:",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = LocalKisaanColors.current.textHeading
-            )
-            Text(
-                text = transcript,
-                fontSize = 18.sp,
-                lineHeight = 28.sp,
-                color = LocalKisaanColors.current.textPrimary,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // Listen back + edit row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                OutlinedButton(
-                    onClick = onReplay,
-                    modifier = Modifier.weight(1f).height(48.dp),
-                    shape = RoundedCornerShape(14.dp)
-                ) {
-                    Icon(Icons.Default.VolumeUp, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("سنیں", fontSize = 13.sp)
-                }
-                OutlinedButton(
-                    onClick = onEdit,
-                    modifier = Modifier.weight(1f).height(48.dp),
-                    shape = RoundedCornerShape(14.dp)
-                ) {
-                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("درست کریں", fontSize = 13.sp)
-                }
-            }
-
-            // Retry (listen again) + confirm (send)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                OutlinedButton(
-                    onClick = onRetry,
-                    modifier = Modifier.weight(1f).height(56.dp),
-                    shape = RoundedCornerShape(14.dp)
-                ) {
-                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(22.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("🔁 دوبارہ", fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                }
-                Button(
-                    onClick = onConfirm,
-                    modifier = Modifier.weight(1f).height(56.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = LocalKisaanColors.current.accent)
-                ) {
-                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(22.dp), tint = Color.White)
-                    Spacer(Modifier.width(6.dp))
-                    Text("بھیجیں", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                }
-            }
-        }
-    }
-}
-
 // Helper Utilities
 private fun startVoiceActivity(
     context: Context,
@@ -2083,9 +2107,9 @@ fun CustomVoiceListeningDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp)
-                .border(BorderStroke(2.dp, LocalKisaanColors.current.accent), RoundedCornerShape(28.dp)),
+                .border(BorderStroke(2.dp, Color(0xFF10B981)), RoundedCornerShape(28.dp)),
             shape = RoundedCornerShape(28.dp),
-            colors = CardDefaults.cardColors(containerColor = LocalKisaanColors.current.surfaceAlt)
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F1210))
         ) {
             Column(
                 modifier = Modifier
@@ -2103,20 +2127,20 @@ fun CustomVoiceListeningDialog(
                         modifier = Modifier
                             .size(32.dp)
                             .clip(CircleShape)
-                            .background(LocalKisaanColors.current.accent),
+                            .background(Color(0xFF10B981)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Spa,
                             contentDescription = null,
-                            tint = LocalKisaanColors.current.surfaceAlt,
+                            tint = Color(0xFF0F1210),
                             modifier = Modifier.size(18.dp)
                         )
                     }
                     Text(
                         text = "کسان دوست آواز • PakKissanAI",
                         fontWeight = FontWeight.Bold,
-                        color = LocalKisaanColors.current.textHeading,
+                        color = Color(0xFFD1E8D1),
                         fontSize = 15.sp,
                         letterSpacing = 0.5.sp
                     )
@@ -2139,27 +2163,27 @@ fun CustomVoiceListeningDialog(
                             .size(120.dp)
                             .scale(animatedRms.value)
                             .clip(CircleShape)
-                            .background(LocalKisaanColors.current.accent.copy(alpha = 0.12f))
+                            .background(Color(0xFF10B981).copy(alpha = 0.12f))
                     )
                     Box(
                         modifier = Modifier
                             .size(90.dp)
                             .scale(animatedRms.value * 0.8f)
                             .clip(CircleShape)
-                            .background(LocalKisaanColors.current.accent.copy(alpha = 0.18f))
+                            .background(Color(0xFF10B981).copy(alpha = 0.18f))
                     )
 
                     Box(
                         modifier = Modifier
                             .size(72.dp)
-                            .shadow(16.dp, CircleShape, spotColor = LocalKisaanColors.current.accent)
-                            .background(LocalKisaanColors.current.accent, CircleShape),
+                            .shadow(16.dp, CircleShape, spotColor = Color(0xFF10B981))
+                            .background(Color(0xFF10B981), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Mic,
                             contentDescription = "Listening",
-                            tint = LocalKisaanColors.current.background,
+                            tint = Color(0xFF090B09),
                             modifier = Modifier.size(34.dp)
                         )
                     }
@@ -2171,7 +2195,7 @@ fun CustomVoiceListeningDialog(
                     text = statusText,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    color = LocalKisaanColors.current.textPrimary,
+                    color = Color(0xFFE1E3E1),
                     textAlign = TextAlign.Center,
                     lineHeight = 24.sp
                 )
@@ -2179,7 +2203,7 @@ fun CustomVoiceListeningDialog(
                 Text(
                     text = subStatusText,
                     fontSize = 11.sp,
-                    color = LocalKisaanColors.current.textHeading.copy(alpha = 0.6f),
+                    color = Color(0xFFD1E8D1).copy(alpha = 0.6f),
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(top = 4.dp),
                     fontWeight = FontWeight.Light
@@ -2194,12 +2218,12 @@ fun CustomVoiceListeningDialog(
                         .padding(vertical = 12.dp),
                     textStyle = LocalTextStyle.current.copy(color = Color.White, fontSize = 14.sp, textDirection = TextDirection.ContentOrRtl),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = LocalKisaanColors.current.accent,
-                        unfocusedBorderColor = LocalKisaanColors.current.border,
+                        focusedBorderColor = Color(0xFF10B981),
+                        unfocusedBorderColor = Color(0xFF3E4A40),
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White,
-                        focusedContainerColor = LocalKisaanColors.current.surface,
-                        unfocusedContainerColor = LocalKisaanColors.current.surfaceAlt
+                        focusedContainerColor = Color(0xFF161B17),
+                        unfocusedContainerColor = Color(0xFF111411)
                     ),
                     shape = RoundedCornerShape(14.dp),
                     maxLines = 3,
@@ -2209,7 +2233,7 @@ fun CustomVoiceListeningDialog(
                                 Icon(
                                     imageVector = Icons.Default.Send,
                                     contentDescription = "Send",
-                                    tint = LocalKisaanColors.current.accent
+                                    tint = Color(0xFF10B981)
                                 )
                             }
                         }
@@ -2219,7 +2243,7 @@ fun CustomVoiceListeningDialog(
                 if (parsedText.isNotBlank()) {
                     Button(
                         onClick = { onSpeechResult(parsedText) },
-                        colors = ButtonDefaults.buttonColors(containerColor = LocalKisaanColors.current.accent),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -2235,7 +2259,7 @@ fun CustomVoiceListeningDialog(
                     Text(
                         text = "آواز ٹیسٹ کرنے کے لیے نیچے دیے گئے سوال پر کلک کریں:",
                         fontSize = 11.sp,
-                        color = LocalKisaanColors.current.accent,
+                        color = Color(0xFF10B981),
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.align(Alignment.Start).padding(bottom = 6.dp)
                     )
@@ -2255,8 +2279,8 @@ fun CustomVoiceListeningDialog(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(LocalKisaanColors.current.surface, RoundedCornerShape(10.dp))
-                                    .border(BorderStroke(1.dp, LocalKisaanColors.current.border), RoundedCornerShape(10.dp))
+                                    .background(Color(0xFF161B17), RoundedCornerShape(10.dp))
+                                    .border(BorderStroke(1.dp, Color(0xFF2E3B30)), RoundedCornerShape(10.dp))
                                     .clickable {
                                         parsedText = queryText
                                         statusText = "آواز منتقل ہو گئی! (سیمولیشن)"
@@ -2269,13 +2293,13 @@ fun CustomVoiceListeningDialog(
                                 Box(
                                     modifier = Modifier
                                         .size(18.dp)
-                                        .background(LocalKisaanColors.current.accent.copy(alpha = 0.2f), CircleShape),
+                                        .background(Color(0xFF10B981).copy(alpha = 0.2f), CircleShape),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Mic,
                                         contentDescription = null,
-                                        tint = LocalKisaanColors.current.accent,
+                                        tint = Color(0xFF10B981),
                                         modifier = Modifier.size(11.dp)
                                     )
                                 }
@@ -2313,13 +2337,13 @@ fun CustomVoiceListeningDialog(
                         waveHeight2.animateTo(12f + baseVal * 2.5f, tween(100))
                         waveHeight3.animateTo(10f + baseVal * 1.8f, tween(100))
                     }
-                    Box(modifier = Modifier.size(width = 4.dp, height = waveHeight1.value.dp).background(LocalKisaanColors.current.accent, RoundedCornerShape(3.dp)))
-                    Box(modifier = Modifier.size(width = 4.dp, height = waveHeight2.value.dp).background(LocalKisaanColors.current.accent, RoundedCornerShape(3.dp)))
-                    Box(modifier = Modifier.size(width = 4.dp, height = waveHeight3.value.dp).background(LocalKisaanColors.current.accent, RoundedCornerShape(3.dp)))
+                    Box(modifier = Modifier.size(width = 4.dp, height = waveHeight1.value.dp).background(Color(0xFF10B981), RoundedCornerShape(3.dp)))
+                    Box(modifier = Modifier.size(width = 4.dp, height = waveHeight2.value.dp).background(Color(0xFF10B981), RoundedCornerShape(3.dp)))
+                    Box(modifier = Modifier.size(width = 4.dp, height = waveHeight3.value.dp).background(Color(0xFF10B981), RoundedCornerShape(3.dp)))
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
-                Divider(color = LocalKisaanColors.current.border, thickness = 1.dp)
+                Divider(color = Color(0xFF2C3E2F), thickness = 1.dp)
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Beautiful Regional Language Question Shortcuts
@@ -2327,7 +2351,7 @@ fun CustomVoiceListeningDialog(
                     text = "مقبول کسان سوالات • Try Local Voice Shortcut:",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
-                    color = LocalKisaanColors.current.accent,
+                    color = Color(0xFF10B981),
                     modifier = Modifier.align(Alignment.Start).padding(bottom = 6.dp)
                 )
 
@@ -2382,8 +2406,8 @@ fun CustomVoiceListeningDialog(
                                 .clickable {
                                     onSpeechResult(query)
                                 },
-                            colors = CardDefaults.cardColors(containerColor = LocalKisaanColors.current.surface),
-                            border = BorderStroke(1.dp, LocalKisaanColors.current.border)
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF161B17)),
+                            border = BorderStroke(1.dp, Color(0xFF2C3E2F))
                         ) {
                             Row(
                                 modifier = Modifier
@@ -2399,21 +2423,21 @@ fun CustomVoiceListeningDialog(
                                     Icon(
                                         imageVector = Icons.Filled.RecordVoiceOver,
                                         contentDescription = null,
-                                        tint = LocalKisaanColors.current.accent,
+                                        tint = Color(0xFF10B981),
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
                                         text = query,
                                         fontSize = 12.sp,
-                                        color = LocalKisaanColors.current.textPrimary,
+                                        color = Color(0xFFE1E3E1),
                                         style = LocalTextStyle.current.copy(textDirection = TextDirection.ContentOrRtl)
                                     )
                                 }
                                 Icon(
                                     imageVector = Icons.Default.Send,
                                     contentDescription = "پوچھیں Ask Kisaan AI",
-                                    tint = LocalKisaanColors.current.accent.copy(alpha = 0.8f),
+                                    tint = Color(0xFF10B981).copy(alpha = 0.8f),
                                     modifier = Modifier.size(16.dp)
                                 )
                             }
@@ -2426,7 +2450,7 @@ fun CustomVoiceListeningDialog(
                 Button(
                     onClick = onDismiss,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = LocalKisaanColors.current.surfaceAlt,
+                        containerColor = Color(0xFF2B1F20),
                         contentColor = Color(0xFFFC8181)
                     ),
                     shape = RoundedCornerShape(14.dp),
@@ -2485,7 +2509,7 @@ fun FarmersLiveSessionDialog(
             .fillMaxWidth()
             .padding(16.dp),
         confirmButton = {},
-        containerColor = LocalKisaanColors.current.surfaceAlt,
+        containerColor = Color(0xFF0F1310),
         tonalElevation = 6.dp,
         text = {
             Column(
@@ -2504,7 +2528,7 @@ fun FarmersLiveSessionDialog(
                         text = UrduDictionary.VOICE_LIVE_MEETING,
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
-                        color = LocalKisaanColors.current.textHeading
+                        color = Color(0xFFD1E8D1)
                     )
                     
                     IconButton(onClick = onDismiss) {
@@ -2531,7 +2555,7 @@ fun FarmersLiveSessionDialog(
                     }
                     is LiveConnectionState.Connecting -> {
                         statusText = "رابطہ قائم ہو رہا ہے... (Connecting)"
-                        statusColor = LocalKisaanColors.current.gold
+                        statusColor = Color(0xFFFBBF24)
                         isPulsing = true
                     }
                     is LiveConnectionState.Connected -> {
@@ -2541,7 +2565,7 @@ fun FarmersLiveSessionDialog(
                     }
                     is LiveConnectionState.SetupComplete -> {
                         statusText = "لائیو مترجم فعال ہے (Live Translation Active)"
-                        statusColor = LocalKisaanColors.current.accent
+                        statusColor = Color(0xFF10B981)
                         isPulsing = true
                     }
                     is LiveConnectionState.Error -> {
@@ -2596,12 +2620,12 @@ fun FarmersLiveSessionDialog(
                 Box(
                     modifier = Modifier
                         .size(110.dp)
-                        .background(LocalKisaanColors.current.surface, CircleShape)
+                        .background(Color(0xFF1E2820), CircleShape)
                         .border(
                             BorderStroke(
                                 2.dp,
                                 Brush.linearGradient(
-                                    listOf(LocalKisaanColors.current.accent, Color(0xFF059669))
+                                    listOf(Color(0xFF10B981), Color(0xFF059669))
                                 )
                             ),
                             CircleShape
@@ -2623,13 +2647,13 @@ fun FarmersLiveSessionDialog(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .scale(sizeMultiplier)
-                                .background(LocalKisaanColors.current.accent.copy(alpha = 0.12f), CircleShape)
+                                .background(Color(0xFF10B981).copy(alpha = 0.12f), CircleShape)
                         )
                     }
                     Icon(
                         imageVector = Icons.Default.Hearing,
                         contentDescription = "Realtime Sound Listening Assistant",
-                        tint = LocalKisaanColors.current.accent,
+                        tint = Color(0xFF10B981),
                         modifier = Modifier.size(46.dp)
                     )
                 }
@@ -2641,8 +2665,8 @@ fun FarmersLiveSessionDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(180.dp)
-                        .background(LocalKisaanColors.current.surface, RoundedCornerShape(16.dp))
-                        .border(BorderStroke(1.dp, LocalKisaanColors.current.border), RoundedCornerShape(16.dp))
+                        .background(Color(0xFF161C17), RoundedCornerShape(16.dp))
+                        .border(BorderStroke(1.dp, Color(0xFF2C3B2E)), RoundedCornerShape(16.dp))
                         .padding(14.dp)
                 ) {
                     if (liveReceivedText.isBlank()) {
@@ -2670,7 +2694,7 @@ fun FarmersLiveSessionDialog(
                             item {
                                 Text(
                                     text = liveReceivedText,
-                                    color = LocalKisaanColors.current.textPrimary,
+                                    color = Color(0xFFE1E3E1),
                                     fontSize = 14.sp,
                                     lineHeight = 22.sp,
                                     modifier = Modifier.fillMaxWidth()
@@ -2699,11 +2723,11 @@ fun FarmersLiveSessionDialog(
                             )
                         },
                         colors = TextFieldDefaults.colors(
-                            focusedContainerColor = LocalKisaanColors.current.surface,
-                            unfocusedContainerColor = LocalKisaanColors.current.surface,
+                            focusedContainerColor = Color(0xFF161C17),
+                            unfocusedContainerColor = Color(0xFF161C17),
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
-                            focusedIndicatorColor = LocalKisaanColors.current.accent,
+                            focusedIndicatorColor = Color(0xFF10B981),
                             unfocusedIndicatorColor = Color.Transparent
                         ),
                         shape = RoundedCornerShape(12.dp),
@@ -2719,13 +2743,13 @@ fun FarmersLiveSessionDialog(
                             }
                         },
                         modifier = Modifier
-                            .background(LocalKisaanColors.current.surface, RoundedCornerShape(12.dp))
-                            .border(BorderStroke(1.dp, LocalKisaanColors.current.border), RoundedCornerShape(12.dp))
+                            .background(Color(0xFF1F2A21), RoundedCornerShape(12.dp))
+                            .border(BorderStroke(1.dp, Color(0xFF374E3B)), RoundedCornerShape(12.dp))
                     ) {
                         Icon(
                             imageVector = Icons.Default.Send,
                             contentDescription = "Send text directly to stream",
-                            tint = LocalKisaanColors.current.accent
+                            tint = Color(0xFF10B981)
                         )
                     }
 
@@ -2743,7 +2767,7 @@ fun FarmersLiveSessionDialog(
                             }
                         },
                         modifier = Modifier
-                            .background(LocalKisaanColors.current.accent, RoundedCornerShape(12.dp))
+                            .background(Color(0xFF10B981), RoundedCornerShape(12.dp))
                     ) {
                         Icon(
                             imageVector = Icons.Default.Mic,
@@ -2775,14 +2799,14 @@ fun NavTabItem(
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(16.dp))
-                .background(if (isActive) LocalKisaanColors.current.accent.copy(alpha = 0.15f) else Color.Transparent)
+                .background(if (isActive) Color(0xFF10B981).copy(alpha = 0.15f) else Color.Transparent)
                 .padding(horizontal = 14.dp, vertical = 4.dp),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = labelUrdu,
-                tint = if (isActive) LocalKisaanColors.current.accent else LocalKisaanColors.current.textPrimary.copy(alpha = 0.5f),
+                tint = if (isActive) Color(0xFF10B981) else Color(0xFFE1E3E1).copy(alpha = 0.5f),
                 modifier = Modifier.size(22.dp)
             )
         }
@@ -2790,9 +2814,703 @@ fun NavTabItem(
             text = labelUrdu,
             fontSize = 11.sp,
             fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
-            color = if (isActive) LocalKisaanColors.current.textHeading else LocalKisaanColors.current.textPrimary.copy(alpha = 0.5f),
+            color = if (isActive) Color(0xFFD1E8D1) else Color(0xFFE1E3E1).copy(alpha = 0.5f),
             modifier = Modifier.padding(top = 2.dp)
         )
+    }
+}
+
+enum class VoiceState {
+    IDLE,
+    LISTENING,
+    THINKING,
+    SPEAKING,
+    DONE
+}
+
+fun getOfflineFarmingAdvice(text: String, primaryCrop: String): String {
+    val query = text.lowercase()
+    return when {
+        query.contains("کھاد") || query.contains("زرخیزی") || query.contains("ڈی اے پی") || query.contains("یوریا") || query.contains("fertilizer") -> {
+            "گندم اور دیگر اہم فصلوں کی اچھی پیداوار حاصل کرنے کے لیے ڈی اے پی اور یوریا کھاد کا متناسب استعمال کریں۔ بوائی کے وقت ایک بوری ڈی اے پی اور پہلے پانی پر آدھی بوری یوریا کھاد ڈالیں۔"
+        }
+        query.contains("کیڑا") || query.contains("بیماری") || query.contains("سپرے") || query.contains("مکھی") || query.contains("سنڈی") || query.contains("pest") || query.contains("insect") -> {
+            "فصل پر کیڑے مکوڑوں اور سست تیلے کے حملے کی صورت میں نیم کے پتوں کا عرق یا دیسی صابن کا محلول سپرے کریں۔ کیمیائی تدارک کے لیے متعلقہ زرعی ماہر کے مشورے سے ایمامیکٹن یا لیمبڈا سپرے کریں۔"
+        }
+        query.contains("پانی") || query.contains("آبپاشی") || query.contains("موسم") || query.contains("بارش") || query.contains("weather") || query.contains("rain") || query.contains("irrigation") -> {
+            "موسمی الرٹ کے مطابق اگلے چند دنوں میں موسم گرم اور خشک رہے گا، اس لیے فصل کو ضرورت کے مطابق پانی دیں۔ گندم کی کٹائی کے دوران موسمی پیشگوئی لازمی سنیں تاکہ بارش سے نقصان نہ ہو۔"
+        }
+        query.contains("مال") || query.contains("مویشی") || query.contains("دودھ") || query.contains("جانور") || query.contains("گائے") || query.contains("بھینس") || query.contains("livestock") -> {
+            "جانوروں کا دودھ بڑھانے کے لیے انہیں متوازن خوراک، سبز چارہ اور سستا دیسی ونڈا دیں۔ گرمی کے موسم میں جانوروں کو سایہ دار جگہ پر رکھیں اور پینے کے لیے تازہ ٹھنڈا پانی فراہم کریں۔"
+        }
+        else -> {
+            "محترم کسان بھائی! آپ کا سوال محفوظ کر لیا گیا ہے۔ آف لائن موڈ میں بہترین رہنمائی کے لیے ہم نے قریبی کسان سہولت مرکز کی معلومات محفوظ کر لی ہیں۔ انٹرنیٹ بحال ہوتے ہی تفصیلی جواب مل جائے گا۔"
+        }
+    }
+}
+
+@Composable
+fun JustTalkScreen(
+    context: Context,
+    selectedLanguage: LanguageOption,
+    textToSpeech: TextToSpeech?,
+    isTtsInitialized: Boolean,
+    isOfflineMode: Boolean,
+    onOfflineModeToggle: (Boolean) -> Unit,
+    isHandsFreeActive: Boolean,
+    onHandsFreeToggle: (Boolean) -> Unit,
+    viewModel: FarmersViewModel,
+    messages: List<ChatMessage>,
+    uiState: FarmersUiState,
+    onExploreClick: () -> Unit
+) {
+    var voiceState by remember { mutableStateOf(VoiceState.IDLE) }
+    var spokenQueryText by remember { mutableStateOf("") }
+    var justTalkAnswerText by remember { mutableStateOf("") }
+
+    // Local SpeechRecognizer reference
+    var speechRecognizer by remember { mutableStateOf<SpeechRecognizer?>(null) }
+    
+    // Cleanup SpeechRecognizer
+    DisposableEffect(context) {
+        onDispose {
+            try {
+                speechRecognizer?.stopListening()
+                speechRecognizer?.cancel()
+                speechRecognizer?.destroy()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    // Function to speak with custom callback
+    fun speakText(text: String, onDone: () -> Unit) {
+        speakOutLoud(
+            textToSpeech = textToSpeech,
+            text = text,
+            languageCode = selectedLanguage.audioLocale,
+            onDone = {
+                onDone()
+            }
+        )
+    }
+
+    // Process the query
+    fun processSpokenQuery(text: String) {
+        if (text.isBlank()) {
+            voiceState = VoiceState.IDLE
+            return
+        }
+        spokenQueryText = text
+        voiceState = VoiceState.THINKING
+
+        if (isOfflineMode) {
+            // Get local offline answer immediately
+            val advice = getOfflineFarmingAdvice(text, viewModel.userProfile.value?.primaryCrop ?: "Wheat")
+            justTalkAnswerText = advice
+            voiceState = VoiceState.SPEAKING
+            speakText(advice) {
+                voiceState = VoiceState.DONE
+            }
+        } else {
+            // Online mode: Send query to Gemini
+            viewModel.sendMessage(text, determineCategory(text))
+        }
+    }
+
+    // Listen for online response success or error
+    LaunchedEffect(uiState) {
+        if (voiceState == VoiceState.THINKING && !isOfflineMode) {
+            when (uiState) {
+                is FarmersUiState.Success -> {
+                    val reply = uiState.response
+                    justTalkAnswerText = reply
+                    voiceState = VoiceState.SPEAKING
+                    speakText(reply) {
+                        voiceState = VoiceState.DONE
+                    }
+                }
+                is FarmersUiState.Error -> {
+                    val errorMsg = "نیٹ ورک کا مسئلہ ہے۔ لیکن آپ آف لائن معلومات حاصل کر سکتے ہیں۔"
+                    justTalkAnswerText = errorMsg
+                    voiceState = VoiceState.SPEAKING
+                    speakText(errorMsg) {
+                        voiceState = VoiceState.DONE
+                    }
+                }
+                else -> { /* Loading or Idle */ }
+            }
+        }
+    }
+
+    // Function to start SpeechRecognizer
+    fun startListeningInline() {
+        if (!SpeechRecognizer.isRecognitionAvailable(context)) {
+            Toast.makeText(context, "آواز کی سروس دستیاب نہیں ہے۔", Toast.LENGTH_SHORT).show()
+            voiceState = VoiceState.IDLE
+            return
+        }
+
+        try {
+            speechRecognizer?.destroy()
+            val recognizer = SpeechRecognizer.createSpeechRecognizer(context)
+            speechRecognizer = recognizer
+
+            recognizer.setRecognitionListener(object : RecognitionListener {
+                override fun onReadyForSpeech(params: android.os.Bundle?) {
+                    // Ready to hear speech
+                }
+
+                override fun onBeginningOfSpeech() {
+                    // Speech begins
+                }
+
+                override fun onRmsChanged(rmsdB: Float) {}
+                override fun onBufferReceived(buffer: ByteArray?) {}
+
+                override fun onEndOfSpeech() {
+                    voiceState = VoiceState.THINKING
+                }
+
+                override fun onError(error: Int) {
+                    val errorMsgUrdu = when (error) {
+                        SpeechRecognizer.ERROR_AUDIO -> "آڈیو ریکارڈنگ کی غلطی"
+                        SpeechRecognizer.ERROR_CLIENT -> "کنکشن کا مسئلہ"
+                        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "مائیک کی اجازت درکار ہے"
+                        SpeechRecognizer.ERROR_NETWORK -> "انٹرنیٹ کا مسئلہ"
+                        SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "نیٹ ورک ٹائم آؤٹ"
+                        SpeechRecognizer.ERROR_NO_MATCH -> "آواز سمجھ نہیں آسکی"
+                        SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "آواز موصول نہیں ہوئی"
+                        else -> "کوشش ناکام رہی"
+                    }
+                    Toast.makeText(context, errorMsgUrdu, Toast.LENGTH_SHORT).show()
+                    voiceState = VoiceState.IDLE
+                }
+
+                override fun onResults(results: android.os.Bundle?) {
+                    val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    val text = matches?.firstOrNull() ?: ""
+                    processSpokenQuery(text)
+                }
+
+                override fun onPartialResults(partialResults: android.os.Bundle?) {}
+                override fun onEvent(eventType: Int, params: android.os.Bundle?) {}
+            })
+
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, selectedLanguage.bcp47Code)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, selectedLanguage.bcp47Code)
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+            }
+            recognizer.startListening(intent)
+        } catch (e: Exception) {
+            Toast.makeText(context, "غلطی: ${e.message}", Toast.LENGTH_SHORT).show()
+            voiceState = VoiceState.IDLE
+        }
+    }
+
+    // Permission check launcher
+    val localPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            voiceState = VoiceState.LISTENING
+            speakText("سن رہا ہوں") {
+                startListeningInline()
+            }
+        } else {
+            Toast.makeText(context, "آواز ریکارڈ کرنے کی اجازت مسترد کر دی گئی۔", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    // Function to trigger voice loop
+    fun triggerMicAction() {
+        textToSpeech?.stop() // Stop any ongoing TTS
+        val hasPermission = ContextCompat.checkSelfPermission(
+            context,
+            android.Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (hasPermission) {
+            voiceState = VoiceState.LISTENING
+            speakText("سن رہا ہوں") {
+                startListeningInline()
+            }
+        } else {
+            localPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    // Auto-re-arm hands-free voice loop!
+    LaunchedEffect(voiceState) {
+        if (voiceState == VoiceState.DONE && isHandsFreeActive) {
+            kotlinx.coroutines.delay(2000)
+            if (voiceState == VoiceState.DONE && isHandsFreeActive) {
+                triggerMicAction()
+            }
+        }
+    }
+
+    // Theme and style definitions matching the HTML
+    val soilColor = Color(0xFF1C1207)
+    val soilColor2 = Color(0xFF2A1D10)
+    val wheatColor = Color(0xFFF4C542)
+    val leafColor = Color(0xFF3FAE5A)
+    val clayColor = Color(0xFFE8623C)
+    val creamColor = Color(0xFFFDF6E9)
+    val inkColor = Color(0xFF1C1207)
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.radialGradient(
+                    colors = listOf(soilColor2, soilColor)
+                )
+            )
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.SpaceBetween
+    ) {
+        // 1. Greet and Online/Offline Toggle pill
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "السلام علیکم، کسان دوست",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = creamColor
+            )
+
+            // Connection Pill (Online / Offline Toggle)
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(if (isOfflineMode) clayColor.copy(alpha = 0.16f) else leafColor.copy(alpha = 0.16f))
+                    .clickable {
+                        val nextMode = !isOfflineMode
+                        onOfflineModeToggle(nextMode)
+                        val modeText = if (nextMode) "آف لائن — کم ڈیٹا موڈ آن" else "آن لائن موڈ آن"
+                        Toast.makeText(context, modeText, Toast.LENGTH_SHORT).show()
+                        speakText(if (nextMode) "آف لائن موڈ آن، محفوظ جوابات چلیں گے" else "آن لائن موڈ آن") {}
+                    }
+                    .border(1.dp, if (isOfflineMode) clayColor else leafColor, RoundedCornerShape(999.dp))
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                val pulseAlpha by rememberInfiniteTransition(label = "pulse_dot_jt").animateFloat(
+                    initialValue = 0.4f,
+                    targetValue = 1.0f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(1000),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "blink_jt"
+                )
+                Box(
+                    modifier = Modifier
+                        .size(9.dp)
+                        .scale(pulseAlpha)
+                        .clip(CircleShape)
+                        .background(if (isOfflineMode) clayColor else leafColor)
+                )
+                Text(
+                    text = if (isOfflineMode) "آف لائن — کم ڈیٹا" else "آن لائن",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isOfflineMode) Color(0xFFFFCDBF) else Color(0xFFBFF0C9)
+                )
+            }
+        }
+
+        // 2. Language Pill marked AUTO
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(999.dp))
+                .background(soilColor2)
+                .border(BorderStroke(1.5.dp, wheatColor.copy(alpha = 0.35f)), RoundedCornerShape(999.dp))
+                .clickable {
+                    Toast.makeText(context, "آپ کی زبان: ${selectedLanguage.displayName}", Toast.LENGTH_SHORT).show()
+                    speakText(selectedLanguage.displayName) {}
+                }
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text("🗣️", fontSize = 15.sp)
+            Text(
+                text = selectedLanguage.displayName,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = creamColor
+            )
+            Text(
+                text = "AUTO",
+                fontSize = 10.sp,
+                color = creamColor.copy(alpha = 0.65f),
+                fontWeight = FontWeight.Light,
+                letterSpacing = 0.5.sp
+            )
+        }
+
+        // 3. Central Stage (Mic, Waveform, Prompts)
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            val promptText = when (voiceState) {
+                VoiceState.IDLE -> "موبائل سے بات کریں"
+                VoiceState.LISTENING -> "سن رہا ہوں…"
+                VoiceState.THINKING -> "سوچ رہا ہوں…"
+                VoiceState.SPEAKING -> "جواب سن رہے ہیں"
+                VoiceState.DONE -> "اور کچھ پوچھنا ہے؟"
+            }
+            val subPromptText = when (voiceState) {
+                VoiceState.IDLE -> "فصل یا کیڑے کے بارے میں پوچھیں"
+                VoiceState.LISTENING -> "اب اپنا سوال بولیں"
+                VoiceState.THINKING -> "ایک لمحہ انتظار کریں"
+                VoiceState.SPEAKING -> "دوبارہ سننے کے لیے بٹن دبائیں"
+                VoiceState.DONE -> "مائیک دبائیں"
+            }
+
+            Text(
+                text = promptText,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = creamColor,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                text = subPromptText,
+                fontSize = 14.sp,
+                color = creamColor.copy(alpha = 0.7f),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
+            )
+
+            // One Giant Mic button with animated rings
+            Box(
+                modifier = Modifier.size(240.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                if (voiceState == VoiceState.LISTENING || voiceState == VoiceState.SPEAKING) {
+                    val ringColor = if (voiceState == VoiceState.LISTENING) leafColor else Color(0xFF3498DB)
+                    val infiniteTransition = rememberInfiniteTransition(label = "mic_rings_jt")
+                    
+                    val scale1 by infiniteTransition.animateFloat(
+                        initialValue = 1.0f, targetValue = 1.6f,
+                        animationSpec = infiniteRepeatable(tween(1600, easing = LinearEasing), RepeatMode.Restart), label = "s1"
+                    )
+                    val alpha1 by infiniteTransition.animateFloat(
+                        initialValue = 0.5f, targetValue = 0.0f,
+                        animationSpec = infiniteRepeatable(tween(1600, easing = LinearEasing), RepeatMode.Restart), label = "a1"
+                    )
+                    
+                    val scale2 by infiniteTransition.animateFloat(
+                        initialValue = 1.0f, targetValue = 1.6f,
+                        animationSpec = infiniteRepeatable(tween(1600, delayMillis = 530, easing = LinearEasing), RepeatMode.Restart), label = "s2"
+                    )
+                    val alpha2 by infiniteTransition.animateFloat(
+                        initialValue = 0.5f, targetValue = 0.0f,
+                        animationSpec = infiniteRepeatable(tween(1600, delayMillis = 530, easing = LinearEasing), RepeatMode.Restart), label = "a2"
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .size(150.dp)
+                            .scale(scale1)
+                            .border(2.dp, ringColor.copy(alpha = alpha1), CircleShape)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(150.dp)
+                            .scale(scale2)
+                            .border(2.dp, ringColor.copy(alpha = alpha2), CircleShape)
+                    )
+                }
+
+                val buttonBg = when (voiceState) {
+                    VoiceState.LISTENING -> Brush.radialGradient(listOf(Color(0xFF7FE39A), leafColor, Color(0xFF2C8244)))
+                    VoiceState.SPEAKING -> Brush.radialGradient(listOf(Color(0xFF9FD4FF), Color(0xFF4A9FE0), Color(0xFF2D7BBD)))
+                    else -> Brush.radialGradient(listOf(Color(0xFFFFE08A), wheatColor, Color(0xFFD99E1C)))
+                }
+
+                Box(
+                    modifier = Modifier
+                        .size(150.dp)
+                        .shadow(24.dp, CircleShape, spotColor = Color.Black)
+                        .background(buttonBg, CircleShape)
+                        .clickable { triggerMicAction() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (voiceState == VoiceState.THINKING) {
+                        val rotationTransition = rememberInfiniteTransition(label = "spin")
+                        val rotationAngle by rotationTransition.animateFloat(
+                            initialValue = 0f, targetValue = 360f,
+                            animationSpec = infiniteRepeatable(tween(1200, easing = LinearEasing), RepeatMode.Restart), label = "spin_angle"
+                        )
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Thinking...",
+                            tint = inkColor,
+                            modifier = Modifier
+                                .size(62.dp)
+                                .rotate(rotationAngle)
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Mic,
+                            contentDescription = "Talk to mobile",
+                            tint = inkColor,
+                            modifier = Modifier.size(62.dp)
+                        )
+                    }
+                }
+            }
+
+            // Bouncing Equalizer Wave
+            if (voiceState == VoiceState.LISTENING) {
+                Row(
+                    modifier = Modifier
+                        .padding(top = 26.dp)
+                        .height(34.dp),
+                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    val waveTransition = rememberInfiniteTransition(label = "bouncing_wave_jt")
+                    
+                    val heights = (0..6).map { i ->
+                        waveTransition.animateFloat(
+                            initialValue = 8f,
+                            targetValue = 34f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(durationMillis = 400 + i * 80, delayMillis = i * 60, easing = FastOutSlowInEasing),
+                                repeatMode = RepeatMode.Reverse
+                            ),
+                            label = "h$i"
+                        )
+                    }
+
+                    heights.forEach { animatedHeight ->
+                        Box(
+                            modifier = Modifier
+                                .width(6.dp)
+                                .height(animatedHeight.value.dp)
+                                .background(leafColor, RoundedCornerShape(3.dp))
+                        )
+                    }
+                }
+            }
+        }
+
+        // 4. Answer card
+        AnimatedVisibility(
+            visible = (voiceState == VoiceState.SPEAKING || voiceState == VoiceState.DONE) && justTalkAnswerText.isNotBlank(),
+            enter = slideInVertically(initialOffsetY = { 50 }) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { 50 }) + fadeOut()
+        ) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp)
+                    .border(BorderStroke(1.5.dp, wheatColor.copy(alpha = 0.18f)), RoundedCornerShape(22.dp)),
+                colors = CardDefaults.cardColors(containerColor = soilColor2),
+                shape = RoundedCornerShape(22.dp)
+            ) {
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Text(
+                        text = "جواب",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = wheatColor,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                    Text(
+                        text = justTalkAnswerText,
+                        fontSize = 17.sp,
+                        lineHeight = 28.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = creamColor,
+                        textAlign = TextAlign.Right,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                voiceState = VoiceState.SPEAKING
+                                speakText(justTalkAnswerText) {
+                                    voiceState = VoiceState.DONE
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = wheatColor),
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(52.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null, tint = inkColor)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("دوبارہ سنیں", color = inkColor, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        OutlinedButton(
+                            onClick = { triggerMicAction() },
+                            border = BorderStroke(1.5.dp, creamColor.copy(alpha = 0.3f)),
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(52.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.Mic, contentDescription = null, tint = creamColor)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("اور پوچھیں", color = creamColor, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
+        // 5. Hands-free switch
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .background(soilColor2)
+                .clickable {
+                    val nextHandsFree = !isHandsFreeActive
+                    onHandsFreeToggle(nextHandsFree)
+                    val speechText = if (nextHandsFree) "اب صرف بولیں، مائیک خود بخود سنتا رہے گا" else "ہینڈز فری موڈ بند ہے"
+                    Toast.makeText(context, if (nextHandsFree) "ہاتھ لگائے بغیر بات آن" else "ہاتھ لگائے بغیر بات آف", Toast.LENGTH_SHORT).show()
+                    speakText(speechText) {}
+                }
+                .padding(14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(leafColor.copy(alpha = 0.18f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(imageVector = Icons.Default.VolumeUp, contentDescription = null, tint = leafColor)
+                }
+                Column {
+                    Text(
+                        text = "ہاتھ لگائے بغیر بات",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = creamColor
+                    )
+                    Text(
+                        text = "مائیک خود سنتا رہے گا — صرف بولیں",
+                        fontSize = 12.sp,
+                        color = creamColor.copy(alpha = 0.65f)
+                    )
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .width(58.dp)
+                    .height(32.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(if (isHandsFreeActive) leafColor else Color(0xFF4A3A22))
+                    .padding(3.dp),
+                contentAlignment = if (isHandsFreeActive) Alignment.CenterEnd else Alignment.CenterStart
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(26.dp)
+                        .clip(CircleShape)
+                        .background(creamColor)
+                )
+            }
+        }
+
+        // 6. Quick shortcuts
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            val chips = listOf(
+                Triple("🌾", "فصلیں", "crops_advise"),
+                Triple("🐛", "کیڑے اور بیماری", "pest_advise"),
+                Triple("🌦️", "موسم", "weather_advise")
+            )
+
+            chips.forEach { (emoji, label, action) ->
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(soilColor2)
+                        .border(BorderStroke(1.5.dp, creamColor.copy(alpha = 0.08f)), RoundedCornerShape(18.dp))
+                        .clickable {
+                            Toast.makeText(context, label, Toast.LENGTH_SHORT).show()
+                            speakText(label) {
+                                val queryPrompt = when (action) {
+                                    "crops_advise" -> "گندم"
+                                    "pest_advise" -> "کیڑے"
+                                    "weather_advise" -> "بارش"
+                                    else -> "عام"
+                                }
+                                processSpokenQuery(queryPrompt)
+                            }
+                        }
+                        .padding(vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(text = emoji, fontSize = 28.sp)
+                    Text(text = label, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = creamColor, textAlign = TextAlign.Center)
+                    Text(text = "▶ سنیں", fontSize = 10.sp, color = creamColor.copy(alpha = 0.5f))
+                }
+            }
+        }
+
+        // 7. Toggle to explore mode button
+        Button(
+            onClick = onExploreClick,
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+            contentPadding = PaddingValues(0.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(imageVector = Icons.Default.ArrowUpward, contentDescription = null, tint = wheatColor, modifier = Modifier.size(16.dp))
+                Text("تفصیلی معلومات دیکھیں (Explore Dashboard)", color = wheatColor, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            }
+        }
     }
 }
 

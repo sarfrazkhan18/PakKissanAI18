@@ -47,9 +47,6 @@ interface KisaanDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMessage(message: ChatMessage)
 
-    @Query("UPDATE chat_messages SET feedback = :value WHERE id = :messageId")
-    suspend fun setMessageFeedback(messageId: String, value: Int)
-
     @Query("DELETE FROM chat_messages WHERE sessionId = :sessionId")
     suspend fun deleteMessagesForSession(sessionId: String)
 
@@ -62,9 +59,6 @@ interface KisaanDao {
 
     @Query("SELECT * FROM user_profiles WHERE phoneNumber = :phoneNumber LIMIT 1")
     suspend fun getProfileByPhone(phoneNumber: String): UserProfile?
-
-    @Query("SELECT * FROM user_profiles WHERE isActive = 1 LIMIT 1")
-    suspend fun getActiveProfileOnce(): UserProfile?
 
     @Query("UPDATE user_profiles SET isActive = 0")
     suspend fun deactivateAllProfiles()

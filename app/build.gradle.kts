@@ -18,15 +18,6 @@ android {
     versionName = "1.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-    // Base host for AI calls. Points at Google directly today; set to your backend proxy
-    // (Phase 0.1) to move the API key off the device. The proxy must accept the same
-    // /v1beta/models/...:generateContent path and inject the key server-side.
-    buildConfigField("String", "GEMINI_API_BASE_URL", "\"https://generativelanguage.googleapis.com/\"")
-
-    // Live (real-time voice) API is gated off until its WebSocket endpoint is verified
-    // against a real key. Flip to true once confirmed so no dead button ships.
-    buildConfigField("boolean", "LIVE_API_ENABLED", "false")
   }
 
   signingConfigs {
@@ -67,12 +58,6 @@ android {
   testOptions { unitTests { isIncludeAndroidResources = true } }
 }
 
-// Export Room schemas so migrations can be written and tested against real snapshots
-// instead of silently wiping farmer data on every version bump.
-ksp {
-  arg("room.schemaLocation", "$projectDir/schemas")
-}
-
 // Configure the Secrets Gradle Plugin to use .env and .env.example files
 // to match the convention used in Web projects.
 secrets {
@@ -105,7 +90,6 @@ dependencies {
   // implementation(libs.androidx.navigation.compose)
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
-  implementation(libs.androidx.work.runtime.ktx)
   // implementation(libs.coil.compose)
   implementation(libs.converter.moshi)
   // implementation(libs.firebase.ai)

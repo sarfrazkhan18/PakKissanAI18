@@ -13,11 +13,5 @@ data class AgriKnowledge(
     val descriptionUr: String,
     val detailsEn: String,
     val detailsUr: String,
-    val keywords: String, // Comma-separated search words for matching
-
-    // Provenance for the verified knowledge base (P2.3 / plan §7). Every entry should cite an
-    // authoritative source and be signed off by a named reviewer before it ships as "verified".
-    val source: String = "",
-    val reviewedBy: String = "",
-    val reviewedOn: String = ""
+    val keywords: String // Comma-separated search words for matching
 )

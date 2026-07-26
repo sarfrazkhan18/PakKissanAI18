@@ -1,15 +1,11 @@
 package com.example.viewmodel
 
 import android.app.Application
-import android.content.Context
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.BuildConfig
 import com.example.data.*
 import com.example.network.*
-import com.example.utils.PasswordHasher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -19,30 +15,6 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
 
     private val database = AppDatabase.getDatabase(application)
     private val repository = KisaanRepository(database.kisaanDao())
-
-    private val prefs = application.getSharedPreferences("kisaan_prefs", Context.MODE_PRIVATE)
-
-    // Global text-scale multiplier ("بڑا سائز"). Applied via LocalDensity so it enlarges
-    // every sp in the app — including hardcoded sizes — for farmers with weak eyesight.
-    private val _textScale = MutableStateFlow(prefs.getFloat("text_scale", 1.0f))
-    val textScale: StateFlow<Float> = _textScale.asStateFlow()
-
-    fun toggleTextScale() {
-        val next = if (_textScale.value >= 1.3f) 1.0f else 1.3f
-        _textScale.value = next
-        prefs.edit().putFloat("text_scale", next).apply()
-    }
-
-    // Theme mode. Defaults to LIGHT (false) because farmers mostly use the app outdoors in
-    // bright sunlight where a dark UI on a cheap LCD is unreadable. Manual ☀️/🌙 toggle.
-    private val _darkMode = MutableStateFlow(prefs.getBoolean("dark_mode", false))
-    val darkMode: StateFlow<Boolean> = _darkMode.asStateFlow()
-
-    fun toggleDarkMode() {
-        val next = !_darkMode.value
-        _darkMode.value = next
-        prefs.edit().putBoolean("dark_mode", next).apply()
-    }
 
     // WebSocket Gemini Live Service Properties
     private val liveService = GeminiLiveService()
@@ -107,7 +79,16 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun saveUserProfile(name: String, phone: String, region: String, primaryCrop: String, dialect: String, passwordRaw: String) {
+    fun saveUserProfile(
+        name: String,
+        phone: String,
+        region: String,
+        primaryCrop: String,
+        dialect: String,
+        passwordRaw: String,
+        challenge: String = "",
+        premium: String = "Free"
+    ) {
         viewModelScope.launch {
             // First deactivate other active accounts
             repository.deactivateAllProfiles()
@@ -119,9 +100,11 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
                 region = region,
                 primaryCrop = primaryCrop,
                 selectedDialect = dialect,
-                passwordHash = PasswordHasher.hash(passwordRaw), // Salted PBKDF2, never plaintext
+                passwordHash = passwordRaw, // Store user's local passcode securely
                 onboardingCompleted = true,
-                isActive = true // Mark this register session active on device
+                isActive = true, // Mark this register session active on device
+                biggestChallenge = challenge,
+                premiumStatus = premium
             )
             repository.saveProfile(profile)
             
@@ -136,15 +119,9 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
     // Local authentications to scale to millions of farmers on shared center/personal devices
     suspend fun attemptLocalLogin(phone: String, passwordRaw: String): Boolean {
         val profile = repository.getProfileByPhone(phone)
-        if (profile != null && PasswordHasher.verify(passwordRaw, profile.passwordHash)) {
+        if (profile != null && profile.passwordHash == passwordRaw) {
             repository.deactivateAllProfiles()
-            // Upgrade any legacy plaintext passcode to a salted hash on first successful login.
-            val upgradedHash = if (PasswordHasher.isLegacyPlaintext(profile.passwordHash)) {
-                PasswordHasher.hash(passwordRaw)
-            } else {
-                profile.passwordHash
-            }
-            val activated = profile.copy(isActive = true, passwordHash = upgradedHash)
+            val activated = profile.copy(isActive = true)
             repository.saveProfile(activated)
             
             val dialect = activated.selectedDialect
@@ -159,31 +136,6 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
 
     suspend fun isPhoneAlreadyRegistered(phone: String): Boolean {
         return repository.getProfileByPhone(phone) != null
-    }
-
-    /** Persist the My Farm profile fields (P2.1/P2.2) onto the active farmer's profile. */
-    fun saveFarmDetails(
-        district: String,
-        primaryCrop: String,
-        cropVariety: String,
-        landArea: String,
-        areaUnit: String,
-        sowingDateMillis: Long,
-        irrigationSource: String
-    ) {
-        viewModelScope.launch {
-            val current = userProfile.value ?: return@launch
-            val updated = current.copy(
-                district = district,
-                primaryCrop = primaryCrop.ifBlank { current.primaryCrop },
-                cropVariety = cropVariety,
-                landArea = landArea,
-                areaUnit = areaUnit,
-                sowingDateMillis = sowingDateMillis,
-                irrigationSource = irrigationSource
-            )
-            repository.saveProfile(updated)
-        }
     }
 
     fun logoutOrClearProfile() {
@@ -220,17 +172,11 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
     val selectedCategory: StateFlow<String> = _selectedCategory.asStateFlow()
 
     init {
-        // Seed agricultural knowledge. The compiled base set seeds once; the expandable JSON
-        // pack (assets/agri_knowledge.json) is upserted every launch so content updates land
-        // for existing installs too (P2.3).
+        // Seed agricultural knowledge database if empty
         viewModelScope.launch {
             try {
                 if (repository.getKnowledgeCount() == 0) {
                     repository.insertKnowledge(AgriKnowledgeSeeder.getInitialKnowledge())
-                }
-                val jsonPack = AgriKnowledgeLoader.loadFromAssets(getApplication())
-                if (jsonPack.isNotEmpty()) {
-                    repository.insertKnowledge(jsonPack)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -305,13 +251,6 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
         val sessionId = _currentSessionId.value ?: return
 
         viewModelScope.launch {
-            // Capture the prior conversation BEFORE inserting this turn.
-            // currentMessages is a Room-backed Flow that updates asynchronously, so reading
-            // it after the insert races: the new user message may or may not be present yet.
-            // Snapshotting here guarantees history excludes the current prompt, which
-            // executeGeminiQuery appends exactly once (fixes the duplicate-turn bug).
-            val chatHistory = currentMessages.value.takeLast(8) // cap history for token usage
-
             // Save User Message
             val userMsg = ChatMessage(
                 sessionId = sessionId,
@@ -324,105 +263,24 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
             _uiState.value = FarmersUiState.Loading
 
             try {
-                // Offline-first: when there's no connection, answer from the local verified
-                // knowledge base instead of failing. Farmers in the field lose signal
-                // constantly — a saved-guidance answer beats a blank error screen.
-                val result = if (isOnline()) {
-                    executeGeminiQuery(userText, chatHistory)
-                } else {
-                    buildOfflineAnswer(userText)
-                }
+                // Fetch context from previous turns in the session to preserve memory
+                val chatHistory = currentMessages.value.takeLast(10) // Limit to last 10 messages for token usage
 
+                val responseText = executeGeminiQuery(userText, chatHistory)
+                
+                // Save AI Generated Response
                 val botMsg = ChatMessage(
                     sessionId = sessionId,
                     role = "model",
-                    text = result.text,
-                    category = category,
-                    usedVerifiedSource = result.usedVerified
+                    text = responseText,
+                    category = category
                 )
                 repository.insertMessage(botMsg)
 
-                _uiState.value = FarmersUiState.Success(result.text)
+                _uiState.value = FarmersUiState.Success(responseText)
             } catch (e: Exception) {
-                // A network call that started online but failed mid-flight still falls back
-                // to local guidance rather than a dead error.
-                val fallback = buildOfflineAnswer(userText)
-                val botMsg = ChatMessage(
-                    sessionId = sessionId,
-                    role = "model",
-                    text = fallback.text,
-                    category = category,
-                    usedVerifiedSource = fallback.usedVerified
-                )
-                repository.insertMessage(botMsg)
-                _uiState.value = FarmersUiState.Success(fallback.text)
+                _uiState.value = FarmersUiState.Error(e.message ?: "نیٹ ورک کا مسئلہ ہے۔ دوبارہ کوشش کریں۔")
             }
-        }
-    }
-
-    /** True when the device currently has an internet-capable network. Fails open. */
-    private fun isOnline(): Boolean {
-        val cm = getApplication<Application>()
-            .getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return true
-        val network = cm.activeNetwork ?: return false
-        val caps = cm.getNetworkCapabilities(network) ?: return false
-        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-    }
-
-    /**
-     * Search the local verified knowledge base for entries relevant to the prompt.
-     * Shared by the online RAG path and the offline fallback so both stay consistent.
-     */
-    private suspend fun searchLocalKnowledge(userPrompt: String): List<AgriKnowledge> {
-        val matches = mutableListOf<AgriKnowledge>()
-        try {
-            matches.addAll(repository.searchKnowledge(userPrompt.trim()))
-            // Split into words to catch individual keywords (gandum, whitefly, cotton, ...)
-            val words = userPrompt.split(Regex("[\\s,?.۔،]+"))
-            for (word in words) {
-                if (word.length >= 3 && matches.size < 3) {
-                    for (wm in repository.searchKnowledge(word)) {
-                        if (matches.none { it.id == wm.id }) matches.add(wm)
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        return matches
-    }
-
-    /** Build an answer purely from local verified data, clearly marked as offline. */
-    private suspend fun buildOfflineAnswer(userPrompt: String): QueryResult {
-        val isEnglish = _selectedLanguage.value == LanguageOption.ENGLISH
-        val matches = searchLocalKnowledge(userPrompt)
-        if (matches.isEmpty()) {
-            val msg = if (isEnglish) {
-                "📴 You are offline. I couldn't find this in the saved guide. " +
-                    "Please reconnect to the internet and ask again."
-            } else {
-                "📴 انٹرنیٹ دستیاب نہیں ہے۔ یہ سوال محفوظ شدہ رہنمائی میں نہیں ملا۔ " +
-                    "براہ کرم انٹرنیٹ آنے پر دوبارہ پوچھیں۔"
-            }
-            return QueryResult(msg, usedVerified = false)
-        }
-        val header = if (isEnglish) {
-            "📴 No internet — showing saved verified guidance:\n\n"
-        } else {
-            "📴 انٹرنیٹ نہیں ہے — یہ محفوظ شدہ تصدیق شدہ معلومات ہیں:\n\n"
-        }
-        val body = matches.take(2).joinToString("\n\n") { m ->
-            val title = if (isEnglish) m.titleEn else m.titleUr
-            val details = if (isEnglish) m.detailsEn else m.detailsUr
-            "🌾 $title\n$details"
-        }.replace("*", "")
-        return QueryResult(header + body, usedVerified = true)
-    }
-
-    /** Record the farmer's 👍/👎 on an answer (quality signal + future training set). */
-    fun setMessageFeedback(messageId: String, value: Int) {
-        viewModelScope.launch {
-            repository.setMessageFeedback(messageId, value)
         }
     }
 
@@ -490,69 +348,41 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    // Decide whether a query needs live Google Search grounding. Only time-sensitive
-    // questions (market/mandi rates, weather, government subsidies) do. Everything else is
-    // served from the model + the local verified knowledge base without a paid search.
-    // Matches English, Roman-Urdu and Urdu-script phrasings farmers actually use.
-    private fun needsLiveSearch(prompt: String): Boolean {
-        val p = prompt.lowercase()
-        val liveKeywords = listOf(
-            // English / Roman-Urdu
-            "rate", "rates", "price", "prices", "mandi", "bhao", "bhav", "bhaao",
-            "today", "aaj", "kal", "weather", "mausam", "forecast", "rain", "barish",
-            "subsidy", "subsidies", "kisan card", "kissan card", "market", "bazar",
-            // Urdu script
-            "ریٹ", "بھاؤ", "قیمت", "قیمتیں", "منڈی", "موسم", "بارش", "آج",
-            "سبسڈی", "کسان کارڈ", "نرخ", "بازار", "پیشگوئی"
-        )
-        return liveKeywords.any { p.contains(it) }
-    }
-
-    private suspend fun executeGeminiQuery(userPrompt: String, history: List<ChatMessage>): QueryResult = withContext(Dispatchers.IO) {
+    private suspend fun executeGeminiQuery(userPrompt: String, history: List<ChatMessage>): String = withContext(Dispatchers.IO) {
         val apiKey = BuildConfig.GEMINI_API_KEY
         if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
-            return@withContext QueryResult("معذرت، AI سروس کی چابی (Gemini API Key) غائب ہے۔ براہ کرم AI Studio کے Secrets پینل میں اپنی چابی درج کریں۔", usedVerified = false)
+            return@withContext "معذرت، AI سروس کی چابی (Gemini API Key) غائب ہے۔ براہ کرم AI Studio کے Secrets پینل میں اپنی چابی درج کریں۔"
         }
 
         // Construct Content parts
         val profile = userProfile.value
         val personalizationIntro = if (profile != null) {
-            // Build a specific farm context so advice is right for THIS farmer's district, crop
-            // stage, and water source — not generic (P2.1/P2.2). Today's date lets the model
-            // reason about timing relative to the sowing date (e.g. "when do I irrigate?").
-            val locationLine = if (profile.district.isNotBlank()) {
-                "${profile.district} district of ${profile.region}"
-            } else {
-                profile.region
-            }
-            val farmDetails = buildList {
-                if (profile.cropVariety.isNotBlank()) add("crop variety: ${profile.cropVariety}")
-                if (profile.landArea.isNotBlank()) add("farm size: ${profile.landArea} ${profile.areaUnit}")
-                if (profile.irrigationSource.isNotBlank()) add("water source: ${profile.irrigationSource}")
-                if (profile.sowingDateMillis > 0L) {
-                    val fmt = java.text.SimpleDateFormat("d MMMM yyyy", java.util.Locale.ENGLISH)
-                    add("sowing date: ${fmt.format(java.util.Date(profile.sowingDateMillis))}")
-                }
-            }.joinToString("; ")
-            val today = java.text.SimpleDateFormat("d MMMM yyyy", java.util.Locale.ENGLISH)
-                .format(java.util.Date())
-            buildString {
-                append("The farmer's name is ${profile.fullName}. They farm in $locationLine, ")
-                append("with their primary crop being ${profile.primaryCrop}. ")
-                if (farmDetails.isNotEmpty()) append("Farm details — $farmDetails. ")
-                append("Today's date is $today. ")
-                append("Always greet them warmly as '${profile.fullName} Bhai' in Urdu/local language. ")
-                append("Customize every answer to the specific soil, pest, climate and canal/tubewell ")
-                append("conditions of their district, and to their crop's current growth stage inferred ")
-                append("from the sowing date and today's date. When they ask about timing (irrigation, ")
-                append("spraying, fertiliser), reason from the sowing date and season, not generic advice.")
-            }
+            "The farmer's name is ${profile.fullName}. They are farming in the region of ${profile.region}, with their primary crop of interest being ${profile.primaryCrop}. Always greet them warmly as '${profile.fullName} Bhai' in Urdu/local language and customize all advisory answers specifically for the geographic soil, pest, and climate conditions of ${profile.region} and focus heavily on his main crop ${profile.primaryCrop}."
         } else {
             "No profile setup completed yet. Respond friendly to the generic farmer."
         }
 
         // Search local database for verified Pakistani agricultural guidelines (RAG)
-        val matches = searchLocalKnowledge(userPrompt)
+        val matches = mutableListOf<AgriKnowledge>()
+        try {
+            val directMatches = repository.searchKnowledge(userPrompt.trim())
+            matches.addAll(directMatches)
+            
+            // Split prompt into words to check for individual major keywords (e.g., gandum, whitefly, cotton, etc.)
+            val words = userPrompt.split(Regex("[\\s,?.۔،]+"))
+            for (word in words) {
+                if (word.length >= 3 && matches.size < 3) {
+                    val wordMatches = repository.searchKnowledge(word)
+                    for (wm in wordMatches) {
+                        if (matches.none { it.id == wm.id }) {
+                            matches.add(wm)
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
         val verifiedContext = if (matches.isNotEmpty()) {
             val contextText = matches.joinToString("\n\n") { match ->
@@ -622,12 +452,6 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
             )
         )
 
-        // Only pay for Google Search grounding when the question actually needs live data
-        // (mandi rates, weather, subsidies). Grounding is billed per query (~$14/1000), so
-        // enabling it on every turn — including questions already answered by the local
-        // knowledge base — wastes 70-80% of the search spend. See needsLiveSearch().
-        val liveTools = if (needsLiveSearch(userPrompt)) listOf(Tool(googleSearch = emptyMap())) else null
-
         val request = GenerateContentRequest(
             contents = contentList,
             generationConfig = GenerationConfig(
@@ -637,18 +461,14 @@ class FarmersViewModel(application: Application) : AndroidViewModel(application)
             systemInstruction = Content(
                 parts = listOf(Part(text = systemDirective))
             ),
-            tools = liveTools
+            tools = listOf(Tool(googleSearch = emptyMap()))
         )
 
         val response = RetrofitClient.service.generateContent(apiKey, request)
         val text = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
         val cleanText = text?.replace("*", "") ?: "معذرت، کوئی جواب موصول نہیں ہوا۔"
-        // Verified when the answer was grounded in the local knowledge base.
-        QueryResult(cleanText, usedVerified = matches.isNotEmpty())
+        cleanText
     }
-
-    /** Result of an advisory query: the answer text and whether it was grounded in verified data. */
-    private data class QueryResult(val text: String, val usedVerified: Boolean)
 
     override fun onCleared() {
         super.onCleared()
@@ -663,35 +483,12 @@ sealed interface FarmersUiState {
     data class Error(val message: String) : FarmersUiState
 }
 
-enum class LanguageOption(
-    val displayName: String,
-    val bcp47Code: String,
-    val sampleQuestion: String,
-    val audioLocale: String,
-    // Whether to offer this option in the picker. Languages without a working speech
-    // voice are hidden until a real TTS/STT is available — a Pashto answer read by an
-    // Urdu engine is unintelligible, which is worse than not offering it (defect D7).
-    val selectable: Boolean = true,
-    // Honest disclosure shown in the picker when text and voice differ.
-    val voiceNote: String = ""
-) {
+enum class LanguageOption(val displayName: String, val bcp47Code: String, val sampleQuestion: String, val audioLocale: String) {
     URDU("اردو (Urdu)", "ur-PK", "گندم کی پیداوار بڑھانے کا طریقہ کیا ہے؟", "ur"),
-    // Text in Punjabi/Seraiki, but voiced by the Urdu engine — labelled as such.
-    PUNJABI("پنجابی (Punjabi)", "ur-PK", "پانی لانے دا صحیح وقت کڑا اے؟", "ur",
-        voiceNote = "پنجابی متن، اردو آواز"),
-    SERAIKI("سرائیکی (Seraiki)", "ur-PK", "کپاہ کوں کیڑے توں بچاونڑ دا طریقہ ڈساؤ۔", "ur",
-        voiceNote = "سرائیکی متن، اردو آواز"),
-    ENGLISH("انگریزی (English)", "en-PK", "How to deal with cotton whiteflies pest attack?", "en"),
-    // Hidden until a real regional voice exists — no working STT/TTS today.
-    SINDHI("سنڌي (Sindhi)", "ur-PK", "ڪڻڪ جي پوکيءَ لاءِ بھترين وقت ڪھڙو آھي؟", "ur",
-        selectable = false),
-    PASHTO("پښتو (Pashto)", "ur-PK", "د غنمو د فصل دپاره کوه ښه ده؟", "ur",
-        selectable = false),
-    BALOCHI("بلوچی (Balochi)", "ur-PK", "مئے زمین ءَ پہ آپ جنگ ءَ چے کنگی انت؟", "ur",
-        selectable = false);
-
-    companion object {
-        /** Languages currently offered in the picker (those with a working voice). */
-        val selectableOptions: List<LanguageOption> get() = entries.filter { it.selectable }
-    }
+    PUNJABI("پنجابی (Punjabi)", "pa-PK", "پانی لانے دا صحیح وقت کڑا اے؟", "ur"), // Fallback to ur for TTS if punjabi engine not loaded
+    SINDHI("سنڌي (Sindhi)", "sd-PK", "ڪڻڪ جي پوکيءَ لاءِ بھترين وقت ڪھڙو آھي؟", "ur"),
+    PASHTO("پښتو (Pashto)", "ps-PK", "د غنمو د فصل دپاره کوه ښه ده؟", "ur"),
+    SERAIKI("سرائیکی (Seraiki)", "ur-PK", "کپاہ کوں کیڑے توں بچاونڑ دا طریقہ ڈساؤ۔", "ur"),
+    BALOCHI("بلوچی (Balochi)", "ur-PK", "مئے زمین ءَ پہ آپ جنگ ءَ چے کنگی انت؟", "ur"),
+    ENGLISH("انگریزی (English)", "en-PK", "How to deal with cotton whiteflies pest attack?", "en")
 }
